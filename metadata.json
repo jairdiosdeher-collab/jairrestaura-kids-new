@@ -1,0 +1,6 @@
+{
+  "name": "JAIRRESTAURA KIDS",
+  "description": "¡Pequeños exploradores, grandes aventuras con Jesús! Aplicación educativa cristiana infantil 3D creada por JAIRRESTAURA – Pastor Jair Hernández.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

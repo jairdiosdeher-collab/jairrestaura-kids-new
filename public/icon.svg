@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" />
+      <stop offset="55%" stop-color="#ea580c" />
+      <stop offset="100%" stop-color="#0284c7" />
+    </linearGradient>
+    <linearGradient id="goldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a" />
+      <stop offset="100%" stop-color="#f59e0b" />
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bgGrad)" />
+  <circle cx="256" cy="256" r="186" fill="#0f172a" fill-opacity="0.18" />
+  <!-- Kingdom Castle Silhouette -->
+  <path d="M156 340 V238 L184 210 L212 238 V264 H232 V190 L256 154 L280 190 V264 H300 V238 L328 210 L356 238 V340 Z" fill="#ffffff" />
+  <path d="M236 340 V290 C236 278 245 270 256 270 C267 270 276 278 276 290 V340 Z" fill="#f59e0b" />
+  <!-- Radiant Star -->
+  <path d="M256 84 L270 120 L308 124 L278 148 L287 186 L256 165 L225 186 L234 148 L204 124 L242 120 Z" fill="url(#goldGrad)" />
+  <!-- Rainbow Base Arc -->
+  <path d="M126 362 C180 392 332 392 386 362" fill="none" stroke="#fef08a" stroke-width="14" stroke-linecap="round" />
+</svg>
