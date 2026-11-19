@@ -261,7 +261,7 @@ export const PianoSchool: React.FC<{ enabled?: boolean }> = ({ enabled = true })
         </div>
         <div className="overflow-x-auto pb-3">
           <div className="relative mx-auto min-w-[700px] select-none" aria-label="Teclado de piano de dos octavas">
-            <div className="grid grid-cols-14">
+            <div className="grid" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
               {WHITE_KEYS.map((note) => (
                 <button
                   key={note.key}
