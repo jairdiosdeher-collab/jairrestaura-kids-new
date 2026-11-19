@@ -1,5 +1,15 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Download, Eraser, Palette, Save, Sparkles, Trash2, Undo2 } from 'lucide-react';
+import {
+  CheckCircle2,
+  Download,
+  Eraser,
+  Palette,
+  Redo2,
+  Save,
+  Sparkles,
+  Trash2,
+  Undo2,
+} from 'lucide-react';
 import { AppProgress, CharacterId, SavedArtwork } from '../types/app';
 import { ASSET_IMAGES } from '../data/modulesData';
 import { CHARACTER_LIST, CHARACTERS } from '../data/characters';
@@ -30,16 +40,28 @@ const PALETTE_COLORS = [
   '#ffffff',
 ];
 
+type StampType = 'star' | 'heart' | 'dove' | 'cross' | null;
+
+const STAMPS: { id: Exclude<StampType, null>; label: string; emoji: string }[] = [
+  { id: 'star', label: 'Estrella', emoji: '⭐' },
+  { id: 'heart', label: 'Corazón', emoji: '❤️' },
+  { id: 'dove', label: 'Paloma', emoji: '🕊️' },
+  { id: 'cross', label: 'Cruz', emoji: '✝️' },
+];
+
 export const CreativityModule: React.FC<CreativityModuleProps> = ({
   progress,
   onSaveArtwork,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const undoStackRef = useRef<ImageData[]>([]);
+  const redoStackRef = useRef<ImageData[]>([]);
   const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
   const [templateId, setTemplateId] = useState('ark');
   const [brushColor, setBrushColor] = useState('#d97706');
   const [brushSize, setBrushSize] = useState(10);
+  const [activeStamp, setActiveStamp] = useState<StampType>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const [savedBanner, setSavedBanner] = useState(false);
 
@@ -58,13 +80,11 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
     ctx.lineJoin = 'round';
 
     if (tpl === 'ark') {
-      // Water wave
       ctx.beginPath();
       ctx.moveTo(20, 260);
       ctx.quadraticCurveTo(140, 240, 280, 260);
       ctx.quadraticCurveTo(420, 280, 540, 260);
       ctx.stroke();
-      // Boat hull
       ctx.beginPath();
       ctx.moveTo(120, 200);
       ctx.lineTo(440, 200);
@@ -72,7 +92,6 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
       ctx.lineTo(160, 255);
       ctx.closePath();
       ctx.stroke();
-      // Cabin & roof
       ctx.strokeRect(190, 140, 180, 60);
       ctx.beginPath();
       ctx.moveTo(175, 140);
@@ -80,7 +99,6 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
       ctx.lineTo(385, 140);
       ctx.closePath();
       ctx.stroke();
-      // Rainbow arc
       ctx.beginPath();
       ctx.arc(280, 200, 190, Math.PI, 0);
       ctx.stroke();
@@ -99,12 +117,10 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
       ctx.closePath();
       ctx.stroke();
     } else if (tpl === 'lamb') {
-      // Hills
       ctx.beginPath();
       ctx.moveTo(20, 270);
       ctx.quadraticCurveTo(280, 210, 540, 270);
       ctx.stroke();
-      // Fluffy body
       ctx.beginPath();
       ctx.arc(280, 185, 58, 0, Math.PI * 2);
       ctx.stroke();
@@ -112,7 +128,6 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
       ctx.arc(215, 175, 34, 0, Math.PI * 2);
       ctx.stroke();
     } else {
-      // Castle
       ctx.strokeRect(180, 140, 200, 140);
       ctx.strokeRect(130, 110, 50, 170);
       ctx.strokeRect(380, 110, 50, 170);
@@ -138,7 +153,9 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
     undoStackRef.current = [];
+    redoStackRef.current = [];
     setCanUndo(false);
+    setCanRedo(false);
     drawTemplateOutline(ctx, templateId);
   }, [templateId]);
 
@@ -151,15 +168,72 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
     };
   };
 
+  const drawStamp = (
+    ctx: CanvasRenderingContext2D,
+    stamp: Exclude<StampType, null>,
+    x: number,
+    y: number
+  ) => {
+    ctx.save();
+    ctx.fillStyle = brushColor === '#ffffff' ? '#d97706' : brushColor;
+    ctx.strokeStyle = '#1e293b';
+    ctx.lineWidth = 2;
+
+    if (stamp === 'star') {
+      ctx.beginPath();
+      for (let i = 0; i < 10; i++) {
+        const r = i % 2 === 0 ? 18 : 8;
+        const a = (Math.PI / 5) * i - Math.PI / 2;
+        const px = x + Math.cos(a) * r;
+        const py = y + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+    } else if (stamp === 'heart') {
+      ctx.beginPath();
+      ctx.moveTo(x, y + 12);
+      ctx.bezierCurveTo(x - 18, y - 2, x - 16, y - 16, x, y - 6);
+      ctx.bezierCurveTo(x + 16, y - 16, x + 18, y - 2, x, y + 12);
+      ctx.fill();
+      ctx.stroke();
+    } else if (stamp === 'cross') {
+      ctx.fillRect(x - 5, y - 18, 10, 36);
+      ctx.fillRect(x - 13, y - 9, 26, 9);
+      ctx.strokeRect(x - 5, y - 18, 10, 36);
+    } else if (stamp === 'dove') {
+      ctx.beginPath();
+      ctx.ellipse(x, y, 14, 9, -0.2, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(x + 12, y - 7, 6, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+    ctx.restore();
+  };
+
   const handlePointerDown = (ev: React.PointerEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx) return;
     const snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
     undoStackRef.current = [...undoStackRef.current.slice(-14), snapshot];
+    redoStackRef.current = [];
     setCanUndo(true);
-    setIsDrawing(true);
+    setCanRedo(false);
     const { x, y } = getCoords(ev);
+
+    if (activeStamp) {
+      drawStamp(ctx, activeStamp, x, y);
+      audioEngine.playChime(progress.settings.soundEnabled);
+      return;
+    }
+
+    setIsDrawing(true);
     ctx.beginPath();
     ctx.moveTo(x, y);
     ctx.strokeStyle = brushColor;
@@ -171,9 +245,24 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext('2d');
     if (!canvas || !ctx || undoStackRef.current.length === 0) return;
+    const currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    redoStackRef.current = [...redoStackRef.current.slice(-14), currentSnapshot];
     const previous = undoStackRef.current.pop()!;
     ctx.putImageData(previous, 0, 0);
     setCanUndo(undoStackRef.current.length > 0);
+    setCanRedo(true);
+  };
+
+  const handleRedo = () => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext('2d');
+    if (!canvas || !ctx || redoStackRef.current.length === 0) return;
+    const currentSnapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+    undoStackRef.current = [...undoStackRef.current.slice(-14), currentSnapshot];
+    const nextSnapshot = redoStackRef.current.pop()!;
+    ctx.putImageData(nextSnapshot, 0, 0);
+    setCanUndo(true);
+    setCanRedo(redoStackRef.current.length > 0);
   };
 
   const handlePointerMove = (ev: React.PointerEvent<HTMLCanvasElement>) => {
@@ -201,6 +290,64 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
     window.setTimeout(() => setSavedBanner(false), 3000);
   };
 
+  const handleDownloadCard = () => {
+    const offscreen = document.createElement('canvas');
+    offscreen.width = 640;
+    offscreen.height = 400;
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) return;
+
+    const grad = ctx.createLinearGradient(0, 0, 640, 400);
+    grad.addColorStop(0, '#fef3c7');
+    grad.addColorStop(1, '#e0f2fe');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, 640, 400);
+
+    ctx.strokeStyle = '#d97706';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(20, 20, 600, 360);
+
+    ctx.fillStyle = '#92400e';
+    ctx.font = 'bold 20px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(cardRecipient || 'Para ti', 320, 74);
+
+    ctx.fillStyle = '#0f172a';
+    ctx.font = 'bold 24px sans-serif';
+    ctx.fillText(`Con cariño de ${CHARACTERS[cardChar].name}`, 320, 126);
+
+    ctx.fillStyle = '#1e293b';
+    ctx.font = '20px sans-serif';
+    const words = `«${cardMessage}»`.split(' ');
+    let line = '';
+    let y = 190;
+    for (const w of words) {
+      const test = line ? `${line} ${w}` : w;
+      if (ctx.measureText(test).width > 500) {
+        ctx.fillText(line, 320, y);
+        line = w;
+        y += 30;
+      } else {
+        line = test;
+      }
+    }
+    if (line) ctx.fillText(line, 320, y);
+
+    ctx.fillStyle = '#0369a1';
+    ctx.font = 'italic 16px sans-serif';
+    ctx.fillText(CHARACTERS[cardChar].favoriteVerse, 320, 308);
+
+    ctx.fillStyle = '#64748b';
+    ctx.font = 'bold 13px sans-serif';
+    ctx.fillText('JAIRRESTAURA KIDS · Pequeños exploradores, grandes aventuras con Jesús', 320, 352);
+
+    const a = document.createElement('a');
+    a.href = offscreen.toDataURL('image/png');
+    a.download = `tarjeta-${cardChar}.png`;
+    a.click();
+    audioEngine.playSuccess(progress.settings.soundEnabled);
+  };
+
   return (
     <div className="space-y-8">
       {/* Banner */}
@@ -214,8 +361,8 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
               Taller de Arte Bíblico y Tarjetas con Valores
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
-              Colorea escenas bíblicas con tu dedo o ratón, guarda tus obras localmente y crea tarjetas
-              de ánimo para tu familia. Sin cámara ni subida de archivos externos.
+              Colorea escenas bíblicas con tu dedo o ratón, añade sellos bíblicos, guarda tus obras
+              localmente y descarga tarjetas de ánimo para tu familia. Sin cámara ni subida externa.
             </p>
           </div>
           <div className="relative min-h-[190px] lg:col-span-5">
@@ -261,11 +408,22 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
               </button>
               <button
                 type="button"
+                disabled={!canRedo}
+                onClick={handleRedo}
+                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl border border-stone-300 px-3 py-1.5 text-xs font-semibold text-stone-700 hover:bg-stone-100 disabled:opacity-40 dark:border-slate-700 dark:text-stone-200"
+              >
+                <Redo2 className="h-3.5 w-3.5" />
+                Rehacer
+              </button>
+              <button
+                type="button"
                 onClick={() => {
                   const ctx = canvasRef.current?.getContext('2d');
                   if (ctx) {
                     undoStackRef.current = [];
+                    redoStackRef.current = [];
                     setCanUndo(false);
+                    setCanRedo(false);
                     drawTemplateOutline(ctx, templateId);
                   }
                 }}
@@ -275,6 +433,38 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
                 Limpiar lienzo
               </button>
             </div>
+          </div>
+
+          {/* Stamps Row */}
+          <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-stone-200 bg-stone-50 px-3 py-2 dark:border-slate-800 dark:bg-slate-950/60">
+            <span className="text-[11px] font-bold text-stone-600 dark:text-stone-300">
+              Herramienta:
+            </span>
+            <button
+              type="button"
+              onClick={() => setActiveStamp(null)}
+              className={`min-h-[34px] rounded-lg px-2.5 py-1 text-xs font-bold ${
+                activeStamp === null
+                  ? 'bg-rose-600 text-white'
+                  : 'bg-white text-stone-700 dark:bg-slate-800 dark:text-stone-200'
+              }`}
+            >
+              Pincel libre
+            </button>
+            {STAMPS.map((st) => (
+              <button
+                key={st.id}
+                type="button"
+                onClick={() => setActiveStamp(st.id)}
+                className={`min-h-[34px] rounded-lg px-2.5 py-1 text-xs font-bold ${
+                  activeStamp === st.id
+                    ? 'bg-amber-600 text-white'
+                    : 'bg-white text-stone-700 dark:bg-slate-800 dark:text-stone-200'
+                }`}
+              >
+                {st.emoji} Sello {st.label}
+              </button>
+            ))}
           </div>
 
           <canvas
@@ -295,7 +485,9 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
                 <button
                   key={hex}
                   type="button"
-                  onClick={() => setBrushColor(hex)}
+                  onClick={() => {
+                    setBrushColor(hex);
+                  }}
                   style={{ backgroundColor: hex }}
                   className={`h-9 w-9 rounded-full border-2 transition ${
                     brushColor === hex
@@ -307,7 +499,10 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
               ))}
               <button
                 type="button"
-                onClick={() => setBrushColor('#ffffff')}
+                onClick={() => {
+                  setActiveStamp(null);
+                  setBrushColor('#ffffff');
+                }}
                 className="inline-flex min-h-[36px] items-center gap-1 rounded-xl border border-stone-300 px-2.5 text-xs font-semibold dark:border-slate-700"
               >
                 <Eraser className="h-3.5 w-3.5" />
@@ -403,6 +598,15 @@ export const CreativityModule: React.FC<CreativityModuleProps> = ({
               {CHARACTERS[cardChar].favoriteVerse}
             </p>
           </div>
+
+          <button
+            type="button"
+            onClick={handleDownloadCard}
+            className="w-full inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2 text-xs font-bold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200"
+          >
+            <Download className="h-4 w-4" />
+            Descargar Tarjeta PNG
+          </button>
         </div>
       </div>
 

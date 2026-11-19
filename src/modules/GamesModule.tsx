@@ -282,6 +282,7 @@ const PUZZLE_COLORS = [
   'bg-orange-500', 'bg-yellow-500', 'bg-teal-500',
 ];
 const PUZZLE_LABELS = ['Cielo', 'Sol', 'Arcoíris', 'Monte', 'Arca', 'Paloma', 'Olas', 'Olivo', 'Paz'];
+const PUZZLE_ICONS = ['🌤️', '☀️', '🌈', '⛰️', '⛵', '🕊️', '🌊', '🫒', '💛'];
 
 const SlidingPuzzleGame: React.FC<{ ageGroup: AgeGroup; soundEnabled: boolean; onWin: () => void }> = ({
   ageGroup,
@@ -330,9 +331,14 @@ const SlidingPuzzleGame: React.FC<{ ageGroup: AgeGroup; soundEnabled: boolean; o
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-xs font-semibold text-stone-600 dark:text-stone-300">
-          Toca dos cuadros para intercambiarlos hasta ordenar del 1 al {tileCount} · Movimientos: {swaps}
-        </p>
+        <div>
+          <p className="text-xs font-semibold text-stone-600 dark:text-stone-300">
+            Toca dos cuadros para intercambiarlos hasta ordenar del 1 al {tileCount} · Movimientos: {swaps}
+          </p>
+          <p className="mt-1 text-[11px] text-stone-500 dark:text-stone-400">
+            Meta: {Array.from({ length: tileCount }, (_, i) => `${i + 1} ${PUZZLE_LABELS[i]}`).join(' · ')}
+          </p>
+        </div>
         <button
           type="button"
           onClick={() => {
@@ -357,12 +363,18 @@ const SlidingPuzzleGame: React.FC<{ ageGroup: AgeGroup; soundEnabled: boolean; o
               key={idx}
               type="button"
               onClick={() => handleTileClick(idx)}
-              className={`flex min-h-[86px] flex-col items-center justify-center rounded-2xl ${PUZZLE_COLORS[tileVal]} text-white shadow-sm transition ${
+              className={`relative flex min-h-[90px] flex-col items-center justify-center rounded-2xl ${PUZZLE_COLORS[tileVal]} text-white shadow-sm transition ${
                 isSelected ? 'ring-4 ring-stone-900 dark:ring-white scale-95' : ''
-              } ${isCorrectPlace ? 'brightness-105' : 'opacity-90'}`}
+              } ${isCorrectPlace ? 'ring-2 ring-emerald-200 brightness-105' : 'opacity-90'}`}
             >
-              <span className="font-mono-nums text-xl font-extrabold">{tileVal + 1}</span>
-              <span className="text-xs font-semibold">{PUZZLE_LABELS[tileVal]}</span>
+              {isCorrectPlace && (
+                <span className="absolute top-1.5 right-2 text-[10px] font-extrabold text-white/95">
+                  ✓
+                </span>
+              )}
+              <span className="text-xl leading-none">{PUZZLE_ICONS[tileVal]}</span>
+              <span className="mt-1 font-mono-nums text-base font-extrabold">{tileVal + 1}</span>
+              <span className="text-[11px] font-semibold">{PUZZLE_LABELS[tileVal]}</span>
             </button>
           );
         })}
@@ -466,6 +478,7 @@ const BibleQuizGame: React.FC<{ ageGroup: AgeGroup; soundEnabled: boolean; onWin
   onWin,
 }) => {
   const questions = QUIZ_BY_AGE[ageGroup];
+  const passThreshold = Math.ceil(questions.length * 0.6);
   const [idx, setIdx] = useState(0);
   const [score, setScore] = useState(0);
   const [chosen, setChosen] = useState<number | null>(null);
@@ -490,19 +503,32 @@ const BibleQuizGame: React.FC<{ ageGroup: AgeGroup; soundEnabled: boolean; onWin
       setChosen(null);
     } else {
       setFinished(true);
-      audioEngine.playSuccess(soundEnabled);
-      onWin();
+      if (score >= passThreshold) {
+        audioEngine.playSuccess(soundEnabled);
+        onWin();
+      } else {
+        audioEngine.playGentleError(soundEnabled);
+      }
     }
   };
 
   if (finished) {
+    const passed = score >= passThreshold;
     return (
       <div className="space-y-4 text-center py-4">
-        <p className="font-display text-2xl font-extrabold text-emerald-700 dark:text-emerald-400">
+        <p
+          className={`font-display text-2xl font-extrabold ${
+            passed
+              ? 'text-emerald-700 dark:text-emerald-400'
+              : 'text-amber-700 dark:text-amber-400'
+          }`}
+        >
           ¡Lograste {score} de {questions.length} aciertos!
         </p>
         <p className="text-sm text-stone-600 dark:text-stone-300">
-          Ganaste +10 estrellas por completar el desafío de Preguntas Bíblicas ({ageGroup} años).
+          {passed
+            ? `¡Aprobado! Ganaste +10 estrellas por completar el desafío de Preguntas Bíblicas (${ageGroup} años).`
+            : `Necesitas al menos ${passThreshold} aciertos para ganar las +10 estrellas. ¡Repasa las historias e inténtalo de nuevo!`}
         </p>
         <button
           type="button"
@@ -515,7 +541,7 @@ const BibleQuizGame: React.FC<{ ageGroup: AgeGroup; soundEnabled: boolean; onWin
           className="inline-flex min-h-[44px] items-center gap-2 rounded-xl bg-amber-600 px-5 py-2 text-sm font-bold text-white"
         >
           <RotateCcw className="h-4 w-4" />
-          Jugar otra vez
+          {passed ? 'Jugar otra vez' : 'Intentar de nuevo'}
         </button>
       </div>
     );
@@ -524,7 +550,7 @@ const BibleQuizGame: React.FC<{ ageGroup: AgeGroup; soundEnabled: boolean; onWin
   return (
     <div className="max-w-xl mx-auto space-y-4">
       <div className="flex justify-between font-mono-nums text-xs font-semibold text-stone-500 dark:text-stone-400">
-        <span>Pregunta {idx + 1} de {questions.length}</span>
+        <span>Pregunta {idx + 1} de {questions.length} · Meta: {passThreshold}+</span>
         <span>Aciertos: {score}</span>
       </div>
       <h4 className="font-display text-lg font-bold text-stone-900 dark:text-stone-100">
@@ -730,6 +756,7 @@ const SequenceGame: React.FC<{ soundEnabled: boolean; onWin: () => void }> = ({
   const [checked, setChecked] = useState<boolean | null>(null);
 
   const move = (idx: number, dir: -1 | 1) => {
+    if (checked === true) return;
     const target = idx + dir;
     if (target < 0 || target >= items.length) return;
     const next = [...items];
@@ -740,6 +767,7 @@ const SequenceGame: React.FC<{ soundEnabled: boolean; onWin: () => void }> = ({
   };
 
   const verify = () => {
+    if (checked === true) return;
     const ok = items.every((item, i) => item.id === i + 1);
     setChecked(ok);
     if (ok) {
@@ -772,13 +800,18 @@ const SequenceGame: React.FC<{ soundEnabled: boolean; onWin: () => void }> = ({
             key={item.id}
             className="flex items-center justify-between gap-3 rounded-2xl border border-stone-200 bg-stone-50 p-4 dark:border-slate-700 dark:bg-slate-800"
           >
-            <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
-              {item.text}
-            </span>
+            <div className="flex items-center gap-3 min-w-0">
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-100 font-mono-nums text-xs font-extrabold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                {idx + 1}
+              </span>
+              <span className="text-sm font-semibold text-stone-800 dark:text-stone-100">
+                {item.text}
+              </span>
+            </div>
             <div className="flex items-center gap-1.5 shrink-0">
               <button
                 type="button"
-                disabled={idx === 0}
+                disabled={idx === 0 || checked === true}
                 onClick={() => move(idx, -1)}
                 className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl border border-stone-300 bg-white disabled:opacity-30 dark:border-slate-600 dark:bg-slate-700"
                 aria-label="Subir"
@@ -787,7 +820,7 @@ const SequenceGame: React.FC<{ soundEnabled: boolean; onWin: () => void }> = ({
               </button>
               <button
                 type="button"
-                disabled={idx === items.length - 1}
+                disabled={idx === items.length - 1 || checked === true}
                 onClick={() => move(idx, 1)}
                 className="min-h-[40px] min-w-[40px] flex items-center justify-center rounded-xl border border-stone-300 bg-white disabled:opacity-30 dark:border-slate-600 dark:bg-slate-700"
                 aria-label="Bajar"
@@ -801,8 +834,9 @@ const SequenceGame: React.FC<{ soundEnabled: boolean; onWin: () => void }> = ({
 
       <button
         type="button"
+        disabled={checked === true}
         onClick={verify}
-        className="w-full min-h-[48px] rounded-2xl bg-amber-600 px-5 py-3 text-sm font-bold text-white hover:bg-amber-700"
+        className="w-full min-h-[48px] rounded-2xl bg-amber-600 px-5 py-3 text-sm font-bold text-white hover:bg-amber-700 disabled:opacity-50"
       >
         Comprobar orden de la historia
       </button>
@@ -1029,6 +1063,7 @@ const VerseTreasureGame: React.FC<{ soundEnabled: boolean; onWin: () => void }> 
   onWin,
 }) => {
   const [verseIdx, setVerseIdx] = useState(0);
+  const [solvedVerseIds, setSolvedVerseIds] = useState<string[]>([]);
   const current = VERSE_TREASURES[verseIdx];
   const scrambled = useMemo(
     () =>
@@ -1055,6 +1090,7 @@ const VerseTreasureGame: React.FC<{ soundEnabled: boolean; onWin: () => void }> 
       audioEngine.playChime(soundEnabled);
       if (nextWords.length === current.parts.length) {
         setWon(true);
+        setSolvedVerseIds((prev) => (prev.includes(current.id) ? prev : [...prev, current.id]));
         audioEngine.playSuccess(soundEnabled);
         onWin();
       }
@@ -1076,20 +1112,26 @@ const VerseTreasureGame: React.FC<{ soundEnabled: boolean; onWin: () => void }> 
     <div className="max-w-xl mx-auto space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap gap-2">
-          {VERSE_TREASURES.map((v, i) => (
-            <button
-              key={v.id}
-              type="button"
-              onClick={() => switchVerse(i)}
-              className={`min-h-[38px] rounded-xl px-3 py-1.5 text-xs font-bold ${
-                i === verseIdx
-                  ? 'bg-amber-600 text-white'
-                  : 'bg-stone-100 text-stone-700 dark:bg-slate-800 dark:text-stone-300'
-              }`}
-            >
-              {v.reference}
-            </button>
-          ))}
+          {VERSE_TREASURES.map((v, i) => {
+            const solved = solvedVerseIds.includes(v.id);
+            return (
+              <button
+                key={v.id}
+                type="button"
+                onClick={() => switchVerse(i)}
+                className={`min-h-[38px] rounded-xl px-3 py-1.5 text-xs font-bold ${
+                  i === verseIdx
+                    ? 'bg-amber-600 text-white'
+                    : solved
+                    ? 'border border-emerald-400 bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+                    : 'bg-stone-100 text-stone-700 dark:bg-slate-800 dark:text-stone-300'
+                }`}
+              >
+                {solved ? '✓ ' : ''}
+                {v.reference}
+              </button>
+            );
+          })}
         </div>
         <button
           type="button"

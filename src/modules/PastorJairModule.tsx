@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BookHeart, Film, Heart, Mic, Play, ShieldCheck, UserCheck } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { BookHeart, Film, Heart, Mic, Play, ShieldCheck, UserCheck, Volume2 } from 'lucide-react';
 import { AppProgress } from '../types/app';
 import { ASSET_IMAGES } from '../data/modulesData';
 import { BIBLE_STORIES } from '../data/stories';
@@ -40,8 +40,49 @@ const KIDS_PRAYERS_BY_PASTOR = [
 export const PastorJairModule: React.FC<PastorJairModuleProps> = ({ progress }) => {
   const [audioStatus, setAudioStatus] = useState<string | null>(null);
   const [videoStatus, setVideoStatus] = useState<string | null>(null);
+  const [readAssistNote, setReadAssistNote] = useState<string | null>(null);
   const [activeVideoUrl, setActiveVideoUrl] = useState<string | null>(null);
-  const [photoAvailable, setPhotoAvailable] = useState(true);
+  const [photoAvailable, setPhotoAvailable] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+    const checkPhoto = async () => {
+      try {
+        const res = await fetch('/media/pastor-jair/foto-autorizada.jpg', { method: 'HEAD' });
+        const contentType = res.headers.get('content-type') || '';
+        if (active && res.ok && contentType.startsWith('image/')) {
+          setPhotoAvailable(true);
+        }
+      } catch {
+        // Offline or file not uploaded yet
+      }
+    };
+    void checkPhoto();
+    return () => {
+      active = false;
+      audioEngine.stopNarration();
+    };
+  }, []);
+
+  const readWrittenDevotional = (title: string, text: string) => {
+    setReadAssistNote(null);
+    const res = audioEngine.speakKidsVoice(
+      `${title}. ${text}`,
+      'leon',
+      progress.settings.soundEnabled
+    );
+    if (!res.startedSpeech && res.reason !== 'muted') {
+      setReadAssistNote(
+        'Este dispositivo no tiene voz en español instalada. Pueden leer juntos en familia este mensaje escrito del Pastor Jair.'
+      );
+    } else if (res.reason === 'muted') {
+      setReadAssistNote('El sonido está silenciado en el Espacio para Padres.');
+    } else {
+      setReadAssistNote(
+        'Lectura de apoyo de Estrellita/León sobre el texto escrito (no simula ni reemplaza la voz real del Pastor Jair).'
+      );
+    }
+  };
 
   const testAuthorizedAudio = async (slotPath: string, label: string) => {
     setAudioStatus(null);
@@ -112,7 +153,7 @@ export const PastorJairModule: React.FC<PastorJairModuleProps> = ({ progress }) 
               </div>
               <div className="min-w-0 flex-1 space-y-1">
                 <p className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
-                  Pastor Jair Hernández · JAIRRESTAURA
+                  Pastor Psicólogo Jair Hernández · JAIRRESTAURA
                 </p>
                 <p className="text-xs text-stone-600 dark:text-stone-300">
                   Compromiso de autenticidad: la aplicación nunca genera ni imita grabaciones o
@@ -154,9 +195,22 @@ export const PastorJairModule: React.FC<PastorJairModuleProps> = ({ progress }) 
                 <p className="mt-2 text-sm leading-relaxed text-stone-700 dark:text-stone-300">
                   {m.text}
                 </p>
+                <button
+                  type="button"
+                  onClick={() => readWrittenDevotional(m.title, m.text)}
+                  className="mt-3 inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-1 text-xs font-bold text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-300"
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                  Lectura de apoyo en pantalla
+                </button>
               </div>
             ))}
           </div>
+          {readAssistNote && (
+            <p className="rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
+              {readAssistNote}
+            </p>
+          )}
         </div>
 
         <div className="space-y-4 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm lg:col-span-5 dark:border-slate-800 dark:bg-slate-900">
@@ -176,6 +230,14 @@ export const PastorJairModule: React.FC<PastorJairModuleProps> = ({ progress }) 
                 <p className="mt-1.5 text-sm leading-relaxed text-stone-700 dark:text-stone-200">
                   “{item.prayer}”
                 </p>
+                <button
+                  type="button"
+                  onClick={() => readWrittenDevotional(item.title, item.prayer)}
+                  className="mt-2.5 inline-flex min-h-[34px] items-center gap-1.5 rounded-lg border border-amber-300 bg-white px-2.5 py-1 text-[11px] font-bold text-amber-800 hover:bg-amber-50 dark:border-amber-800 dark:bg-slate-900 dark:text-amber-300"
+                >
+                  <Volume2 className="h-3.5 w-3.5" />
+                  Escuchar oración
+                </button>
               </div>
             ))}
           </div>

@@ -12,6 +12,8 @@ import {
   Sun,
   Volume2,
   VolumeX,
+  ZoomIn,
+  ZoomOut,
 } from 'lucide-react';
 import { CharacterId, ModuleId } from '../types/app';
 import { ASSET_IMAGES } from '../data/modulesData';
@@ -108,6 +110,7 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
   const isTransitioningRef = useRef(false);
   const darkModeRef = useRef(darkMode);
   const syncThemeRef = useRef<((isNight: boolean) => void) | null>(null);
+  const zoomDeltaRef = useRef<((scaleFactor: number) => void) | null>(null);
   const soundRef = useRef(soundEnabled);
   const activeCharRef = useRef<CharacterId>(activeCharacter);
   const charJumpTimersRef = useRef<Record<CharacterId, number>>({
@@ -312,7 +315,7 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
     terrainMesh.receiveShadow = true;
     scene.add(terrainMesh);
 
-    // 2. Sky Bodies: Day Sun, Night Moon & Twinkling Stars
+    // 2. Sky Bodies: Day Sun with Corona, Distant Horizon Silhouettes, Night Moon & Twinkling Stars
     const sunOrb = new THREE.Mesh(
       track(new THREE.SphereGeometry(1.75, 20, 20)),
       track(
@@ -323,6 +326,35 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
     );
     sunOrb.position.set(15, 17.5, -18);
     scene.add(sunOrb);
+
+    const sunCorona = new THREE.Mesh(
+      track(new THREE.RingGeometry(1.9, 2.85, 28)),
+      track(
+        new THREE.MeshBasicMaterial({
+          color: 0xfde047,
+          transparent: true,
+          opacity: 0.32,
+          side: THREE.DoubleSide,
+        })
+      )
+    );
+    sunCorona.position.copy(sunOrb.position);
+    scene.add(sunCorona);
+
+    // Distant layered horizon peaks for rich atmospheric depth
+    const horizonMat = track(
+      new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.92, metalness: 0.02 })
+    );
+    [
+      { x: -25, z: -26, r: 9.5, h: 13 },
+      { x: -12, z: -29, r: 11, h: 15.5 },
+      { x: 4, z: -31, r: 12, h: 14.2 },
+      { x: 21, z: -27, r: 10, h: 13.5 },
+    ].forEach((hp) => {
+      const hPeak = new THREE.Mesh(track(new THREE.ConeGeometry(hp.r, hp.h, 7)), horizonMat);
+      hPeak.position.set(hp.x, hp.h * 0.42, hp.z);
+      scene.add(hPeak);
+    });
 
     const moonOrb = new THREE.Mesh(
       track(new THREE.SphereGeometry(1.35, 20, 20)),
@@ -735,6 +767,51 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
       });
     });
 
+    // 8b. Soaring Birds above the Castle & Rainbow + Night Fireflies
+    interface BirdActor {
+      group: THREE.Group;
+      wingL: THREE.Mesh;
+      wingR: THREE.Mesh;
+      orbitR: number;
+      altitude: number;
+      speed: number;
+      phase: number;
+    }
+    const birds: BirdActor[] = [];
+    const birdMat = track(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 }));
+    const birdWingGeo = track(new THREE.BoxGeometry(0.32, 0.03, 0.14));
+    const birdBodyGeo = track(new THREE.ConeGeometry(0.08, 0.28, 6));
+    birdBodyGeo.rotateX(Math.PI / 2);
+    for (let i = 0; i < 4; i++) {
+      const grp = new THREE.Group();
+      const body = new THREE.Mesh(birdBodyGeo, birdMat);
+      const wingL = new THREE.Mesh(birdWingGeo, birdMat);
+      wingL.position.x = -0.16;
+      const wingR = new THREE.Mesh(birdWingGeo, birdMat);
+      wingR.position.x = 0.16;
+      grp.add(body, wingL, wingR);
+      scene.add(grp);
+      birds.push({
+        group: grp,
+        wingL,
+        wingR,
+        orbitR: 6.8 + i * 2.1,
+        altitude: 9.4 + (i % 2) * 1.4,
+        speed: 0.32 + i * 0.05,
+        phase: i * 1.55,
+      });
+    }
+
+    const fireflyCount = 26;
+    const fireflyGeo = track(new THREE.SphereGeometry(0.07, 6, 6));
+    const fireflyMat = track(
+      new THREE.MeshBasicMaterial({ color: 0xfde047, transparent: true, opacity: 0.88 })
+    );
+    const fireflies = new THREE.InstancedMesh(fireflyGeo, fireflyMat, fireflyCount);
+    fireflies.visible = darkModeRef.current;
+    scene.add(fireflies);
+
+
     // 9. Five Original Living 3D Characters with Halo Ground Rings & Articulated Arms
     const characterRings: Record<CharacterId, THREE.Mesh> = {} as Record<CharacterId, THREE.Mesh>;
     const characterBaseY: Record<CharacterId, number> = {} as Record<CharacterId, number>;
@@ -991,16 +1068,41 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
       pointerDownPos = { x: ev.clientX, y: ev.clientY };
     };
 
+    // Tactile 3D golden ripple ring on click/tap
+    const tapRippleMat = track(
+      new THREE.MeshBasicMaterial({
+        color: 0xfef08a,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+      })
+    );
+    const tapRipple = new THREE.Mesh(track(new THREE.RingGeometry(0.32, 0.48, 24)), tapRippleMat);
+    tapRipple.rotation.x = -Math.PI / 2;
+    tapRipple.visible = false;
+    scene.add(tapRipple);
+    let tapRippleAge = 1;
+
+    const triggerRippleAt = (pt: THREE.Vector3) => {
+      tapRipple.position.set(pt.x, pt.y + 0.14, pt.z);
+      tapRipple.visible = true;
+      tapRippleAge = 0;
+    };
+
     const onPointerUp = (ev: PointerEvent) => {
       const dist = Math.hypot(ev.clientX - pointerDownPos.x, ev.clientY - pointerDownPos.y);
-      if (dist > 9) return;
+      if (dist > 11) return;
       updatePointer(ev);
       raycaster.setFromCamera(pointer, camera);
       const hits = raycaster.intersectObjects(interactiveTargets, true);
       if (hits.length > 0) {
+        triggerRippleAt(hits[0].point);
         let node: THREE.Object3D | null = hits[0].object;
         while (node && !node.userData.onAction) {
           node = node.parent;
+        }
+        if (node?.userData.label) {
+          setHoveredLabel(String(node.userData.label));
         }
         if (node?.userData.onAction) {
           (node.userData.onAction as () => void)();
@@ -1127,15 +1229,26 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.color.copy(targetSky);
       }
-      sunLight.intensity = isNight ? 0.58 : 1.85;
-      hemiLight.intensity = isNight ? 0.55 : 0.95;
-      glowWindowMat.emissiveIntensity = isNight ? 2.5 : 1.25;
+      sunLight.intensity = isNight ? 0.62 : 1.85;
+      hemiLight.intensity = isNight ? 0.6 : 0.95;
+      glowWindowMat.emissiveIntensity = isNight ? 2.6 : 1.25;
       sunOrb.visible = !isNight;
+      sunCorona.visible = !isNight;
       moonOrb.visible = isNight;
       starField.visible = isNight;
+      fireflies.visible = isNight;
       renderer.render(scene, camera);
     };
     syncThemeRef.current = applyThemeImmediate;
+    zoomDeltaRef.current = (scaleFactor: number) => {
+      if (disposed) return;
+      isTransitioningRef.current = false;
+      _vec3.copy(camera.position).sub(controls.target);
+      const nextDist = THREE.MathUtils.clamp(_vec3.length() * scaleFactor, controls.minDistance, controls.maxDistance);
+      _vec3.setLength(nextDist);
+      camera.position.copy(controls.target).add(_vec3);
+      controls.update();
+    };
     applyThemeImmediate(darkModeRef.current);
 
     function tick() {
@@ -1154,14 +1267,31 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
       if (scene.fog instanceof THREE.FogExp2) {
         scene.fog.color.lerp(desiredSky, 1 - Math.exp(-5 * dt));
       }
-      sunLight.intensity = THREE.MathUtils.damp(sunLight.intensity, isNight ? 0.58 : 1.85, 5, dt);
-      hemiLight.intensity = THREE.MathUtils.damp(hemiLight.intensity, isNight ? 0.55 : 0.95, 5, dt);
-      glowWindowMat.emissiveIntensity = isNight ? 2.5 : 1.25;
+      sunLight.intensity = THREE.MathUtils.damp(sunLight.intensity, isNight ? 0.62 : 1.85, 5, dt);
+      hemiLight.intensity = THREE.MathUtils.damp(hemiLight.intensity, isNight ? 0.6 : 0.95, 5, dt);
+      glowWindowMat.emissiveIntensity = isNight ? 2.6 : 1.25;
       sunOrb.visible = !isNight;
+      sunCorona.visible = !isNight;
+      if (!isNight) {
+        sunCorona.lookAt(camera.position);
+      }
       moonOrb.visible = isNight;
       starField.visible = isNight;
+      fireflies.visible = isNight;
       if (isNight) {
         starField.rotation.y = t * 0.02;
+        for (let i = 0; i < fireflyCount; i++) {
+          const ang = t * 0.6 + i * 1.1;
+          const r = 3.5 + (i % 6) * 1.6;
+          const fx = Math.cos(ang) * r;
+          const fz = Math.sin(ang * 0.8) * r + 1.5;
+          const fy = groundHeightAt(fx, fz) + 0.8 + Math.sin(t * 2.8 + i) * 0.45;
+          _dummy.position.set(fx, fy, fz);
+          _dummy.scale.setScalar(0.6 + Math.sin(t * 5 + i) * 0.35);
+          _dummy.updateMatrix();
+          fireflies.setMatrixAt(i, _dummy.matrix);
+        }
+        fireflies.instanceMatrix.needsUpdate = true;
       }
 
       // Castle beacon & flags
@@ -1221,6 +1351,30 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
         b.wingR.rotation.z = -flap;
       });
 
+      // Soaring birds
+      birds.forEach((b) => {
+        const ang = t * b.speed + b.phase;
+        const bx = Math.cos(ang) * b.orbitR;
+        const bz = Math.sin(ang) * (b.orbitR * 0.7) - 3;
+        b.group.position.set(bx, b.altitude + Math.sin(t * 1.4 + b.phase) * 0.45, bz);
+        b.group.rotation.y = -ang;
+        const flap = Math.sin(t * 9 + b.phase) * 0.55;
+        b.wingL.rotation.z = flap;
+        b.wingR.rotation.z = -flap;
+      });
+
+      // Expanding 3D tap ripple
+      if (tapRipple.visible) {
+        tapRippleAge += dt * 1.9;
+        if (tapRippleAge >= 1) {
+          tapRipple.visible = false;
+        } else {
+          tapRipple.scale.setScalar(1 + tapRippleAge * 3.2);
+          tapRippleMat.opacity = (1 - tapRippleAge) * 0.85;
+        }
+      }
+
+
       // Five characters
       animateCharacterBounce('lucas', lucas3D, t, dt, 0);
       animateCharacterBounce('luna', luna3D, t, dt, 1.1);
@@ -1272,6 +1426,7 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
       renderer.domElement.removeEventListener('webglcontextlost', onContextLost);
       renderer.domElement.removeEventListener('webglcontextrestored', onContextRestored);
       syncThemeRef.current = null;
+      zoomDeltaRef.current = null;
       controls.dispose();
       disposables.forEach((d) => d.dispose());
       renderer.dispose();
@@ -1372,6 +1527,23 @@ export const Kingdom3DScene: React.FC<Kingdom3DSceneProps> = ({
                   <VolumeX className="h-3.5 w-3.5" />
                 )}
                 {ambientPlaying ? 'Música activa' : 'Música'}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => zoomDeltaRef.current?.(0.84)}
+                aria-label="Acercar cámara 3D"
+                className="inline-flex min-h-[38px] min-w-[38px] items-center justify-center rounded-xl bg-white/12 text-stone-100 hover:bg-white/22 transition shrink-0"
+              >
+                <ZoomIn className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => zoomDeltaRef.current?.(1.18)}
+                aria-label="Alejar cámara 3D"
+                className="inline-flex min-h-[38px] min-w-[38px] items-center justify-center rounded-xl bg-white/12 text-stone-100 hover:bg-white/22 transition shrink-0"
+              >
+                <ZoomOut className="h-3.5 w-3.5" />
               </button>
             </div>
 

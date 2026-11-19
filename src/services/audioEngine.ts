@@ -5,7 +5,14 @@ interface SongPlaybackOptions {
   musicEnabled: boolean;
   startAtSec?: number;
   onProgress: (elapsedSec: number) => void;
+  onBeat?: (noteIndex: number, freq: number) => void;
   onEnded: () => void;
+}
+
+export interface SpeechSupportInfo {
+  supported: boolean;
+  hasSpanishVoice: boolean;
+  voiceName: string | null;
 }
 
 class KidsAudioEngine {
@@ -34,6 +41,23 @@ class KidsAudioEngine {
     return this.ctx;
   }
 
+  public getSpeechSupport(): SpeechSupportInfo {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return { supported: false, hasSpanishVoice: false, voiceName: null };
+    }
+    const voices = window.speechSynthesis.getVoices();
+    const esVoice =
+      voices.find((v) => v.lang.toLowerCase().startsWith('es-mx')) ||
+      voices.find((v) => v.lang.toLowerCase().startsWith('es-419')) ||
+      voices.find((v) => v.lang.toLowerCase().startsWith('es'));
+
+    return {
+      supported: true,
+      hasSpanishVoice: Boolean(esVoice),
+      voiceName: esVoice ? `${esVoice.name} (${esVoice.lang})` : null,
+    };
+  }
+
   public playTone(
     freq: number,
     duration = 0.25,
@@ -58,33 +82,63 @@ class KidsAudioEngine {
     osc.stop(ctx.currentTime + duration + 0.03);
   }
 
-  private playArrangementNote(freq: number, harmonyFreq: number | undefined, durSec: number, withBeat: boolean) {
+  private playArrangementNote(
+    freq: number,
+    harmonyFreq: number | undefined,
+    durSec: number,
+    stepIdx: number
+  ) {
     const ctx = this.ensureContext();
     if (!ctx || freq <= 0) return;
 
-    // Warm marimba-like lead (fundamental + gentle 2nd harmonic)
-    this.playTone(freq, durSec * 0.94, 'triangle', 0.14);
-    this.playTone(freq * 2, durSec * 0.35, 'sine', 0.035);
+    // 1. Warm marimba / celesta lead
+    this.playTone(freq, durSec * 0.92, 'triangle', 0.14);
+    this.playTone(freq * 2, durSec * 0.3, 'sine', 0.03);
 
-    // Bass & chord accompaniment
-    if (harmonyFreq && harmonyFreq > 0) {
-      this.playTone(harmonyFreq, durSec * 0.96, 'sine', 0.08);
-      this.playTone(harmonyFreq * 1.5, durSec * 0.7, 'sine', 0.045);
+    // 2. Gentle flute sustain on phrase accents
+    if (stepIdx % 4 === 0) {
+      this.playTone(freq, durSec * 1.15, 'sine', 0.055);
     }
 
-    // Soft rhythmic pulse on main beats
-    if (withBeat) {
+    // 3. Warm bass & fifth chord accompaniment
+    if (harmonyFreq && harmonyFreq > 0) {
+      this.playTone(harmonyFreq, durSec * 0.95, 'sine', 0.085);
+      this.playTone(harmonyFreq * 1.498, durSec * 0.72, 'sine', 0.042);
+      if (stepIdx % 2 === 1) {
+        // Gentle arpeggiated octave chime
+        window.setTimeout(() => {
+          if (this.isPlayingSong) {
+            this.playTone(harmonyFreq * 2, durSec * 0.45, 'triangle', 0.032);
+          }
+        }, Math.round((durSec * 500) / 2));
+      }
+    }
+
+    // 4. Soft percussive pulse (kick on even, light woodblock click on off-beats)
+    if (stepIdx % 2 === 0) {
       const kick = ctx.createOscillator();
       const kGain = ctx.createGain();
       kick.type = 'sine';
-      kick.frequency.setValueAtTime(140, ctx.currentTime);
-      kick.frequency.exponentialRampToValueAtTime(52, ctx.currentTime + 0.09);
-      kGain.gain.setValueAtTime(0.09, ctx.currentTime);
+      kick.frequency.setValueAtTime(138, ctx.currentTime);
+      kick.frequency.exponentialRampToValueAtTime(50, ctx.currentTime + 0.09);
+      kGain.gain.setValueAtTime(0.085, ctx.currentTime);
       kGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.11);
       kick.connect(kGain);
       kGain.connect(ctx.destination);
       kick.start(ctx.currentTime);
       kick.stop(ctx.currentTime + 0.12);
+    } else {
+      const rim = ctx.createOscillator();
+      const rGain = ctx.createGain();
+      rim.type = 'triangle';
+      rim.frequency.setValueAtTime(1180, ctx.currentTime);
+      rim.frequency.exponentialRampToValueAtTime(640, ctx.currentTime + 0.03);
+      rGain.gain.setValueAtTime(0.022, ctx.currentTime);
+      rGain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
+      rim.connect(rGain);
+      rGain.connect(ctx.destination);
+      rim.start(ctx.currentTime);
+      rim.stop(ctx.currentTime + 0.05);
     }
   }
 
@@ -160,7 +214,13 @@ class KidsAudioEngine {
   private scheduleFromPosition(song: KidsSong, startSec: number, options: SongPlaybackOptions) {
     this.clearSongTimers();
     const beatSec = 60 / song.bpm;
-    const timeline: { offsetSec: number; durSec: number; freq: number; harmonyFreq?: number; beat: boolean }[] = [];
+    const timeline: {
+      offsetSec: number;
+      durSec: number;
+      freq: number;
+      harmonyFreq?: number;
+      stepIdx: number;
+    }[] = [];
 
     let cursorSec = 0;
     let noteCounter = 0;
@@ -173,7 +233,7 @@ class KidsAudioEngine {
           durSec,
           freq: ev.freq,
           harmonyFreq: ev.harmonyFreq,
-          beat: noteCounter % 2 === 0,
+          stepIdx: noteCounter,
         });
         cursorSec += durSec;
         noteCounter++;
@@ -185,7 +245,8 @@ class KidsAudioEngine {
       const delayMs = Math.max(0, (ev.offsetSec - startSec) * 1000);
       const tid = window.setTimeout(() => {
         if (!this.isPlayingSong || this.activeSong?.id !== song.id) return;
-        this.playArrangementNote(ev.freq, ev.harmonyFreq, ev.durSec, ev.beat);
+        this.playArrangementNote(ev.freq, ev.harmonyFreq, ev.durSec, ev.stepIdx);
+        options.onBeat?.(ev.stepIdx, ev.freq);
       }, delayMs);
       this.songTimerIds.push(tid);
     });
@@ -229,20 +290,34 @@ class KidsAudioEngine {
     this.clearSongTimers();
   }
 
-  public speakKidsVoice(text: string, character: CharacterId, enabled = true, onEnd?: () => void) {
+  public speakKidsVoice(
+    text: string,
+    character: CharacterId,
+    enabled = true,
+    onEnd?: () => void
+  ): { startedSpeech: boolean; reason?: 'muted' | 'no-api' | 'no-spanish-voice' } {
     this.stopNarration();
-    if (!enabled || typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    if (!enabled) {
       onEnd?.();
-      return;
+      return { startedSpeech: false, reason: 'muted' };
+    }
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+      return { startedSpeech: false, reason: 'no-api' };
     }
 
-    const utterance = new SpeechSynthesisUtterance(text);
     const voices = window.speechSynthesis.getVoices();
     const esVoice =
       voices.find((v) => v.lang.toLowerCase().startsWith('es-mx')) ||
       voices.find((v) => v.lang.toLowerCase().startsWith('es-419')) ||
       voices.find((v) => v.lang.toLowerCase().startsWith('es'));
 
+    // If browser exposes voices list and has zero Spanish voices, trigger visual guided reading cleanly
+    if (voices.length > 0 && !esVoice) {
+      this.playCharacterSound(character, true);
+      return { startedSpeech: false, reason: 'no-spanish-voice' };
+    }
+
+    const utterance = new SpeechSynthesisUtterance(text);
     if (esVoice) utterance.voice = esVoice;
     utterance.lang = 'es-MX';
 
@@ -264,8 +339,15 @@ class KidsAudioEngine {
       onEnd?.();
     };
 
-    this.currentUtterance = utterance;
-    window.speechSynthesis.speak(utterance);
+    try {
+      this.currentUtterance = utterance;
+      window.speechSynthesis.speak(utterance);
+      return { startedSpeech: true };
+    } catch {
+      this.currentUtterance = null;
+      this.playCharacterSound(character, true);
+      return { startedSpeech: false, reason: 'no-api' };
+    }
   }
 
   public async playAuthorizedPastorAudio(
@@ -306,7 +388,6 @@ class KidsAudioEngine {
     if (!ctx) return false;
 
     this.ambientPlaying = true;
-    // Gentle pastoral arpeggio in C major / F major / G major (harp-like soft sine)
     const progression = [
       [261.63, 329.63, 392.0, 523.25],
       [220.0, 261.63, 329.63, 440.0],

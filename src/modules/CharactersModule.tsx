@@ -37,6 +37,7 @@ export const CharactersModule: React.FC<CharactersModuleProps> = ({ progress }) 
   const [quizTarget, setQuizTarget] = useState<CharacterExpression>('asombrado');
   const [quizResult, setQuizResult] = useState<'idle' | 'correct' | 'try'>('idle');
   const [friendshipPoints, setFriendshipPoints] = useState(0);
+  const [voiceNote, setVoiceNote] = useState<string | null>(null);
 
   const char = CHARACTERS[selectedId];
 
@@ -45,6 +46,7 @@ export const CharactersModule: React.FC<CharactersModuleProps> = ({ progress }) 
     setExpression('alegre');
     setScenarioTheme(CHARACTERS[id].scenarioTheme);
     setQuizResult('idle');
+    setVoiceNote(null);
     setBounceKey((k) => k + 1);
     audioEngine.playCharacterSound(id, progress.settings.soundEnabled);
   };
@@ -52,10 +54,16 @@ export const CharactersModule: React.FC<CharactersModuleProps> = ({ progress }) 
   const triggerReaction = (expr: CharacterExpression) => {
     setExpression(expr);
     setActiveTab('dialogue');
+    setVoiceNote(null);
     setBounceKey((k) => k + 1);
     audioEngine.playCharacterSound(selectedId, progress.settings.soundEnabled);
     if (progress.settings.voiceMode === 'kids' && progress.settings.soundEnabled) {
-      audioEngine.speakKidsVoice(char.reactions[expr], selectedId, true);
+      const res = audioEngine.speakKidsVoice(char.reactions[expr], selectedId, true);
+      if (!res.startedSpeech && res.reason !== 'muted') {
+        setVoiceNote(
+          `Sin voz en español en este navegador: lee el mensaje de ${char.name} acompañado de su sonido musical.`
+        );
+      }
     }
   };
 
@@ -94,7 +102,7 @@ export const CharactersModule: React.FC<CharactersModuleProps> = ({ progress }) 
             </p>
           </div>
           <div className="text-xs font-bold text-amber-700 dark:text-amber-300">
-            Sonrisas compartidas hoy: <span className="font-mono-nums">{friendshipPoints}</span>
+            Sonrisas en esta sesión: <span className="font-mono-nums">{friendshipPoints}</span>
           </div>
         </div>
 
@@ -293,19 +301,31 @@ export const CharactersModule: React.FC<CharactersModuleProps> = ({ progress }) 
               ))}
               <button
                 type="button"
-                onClick={() =>
-                  audioEngine.speakKidsVoice(
+                onClick={() => {
+                  const res = audioEngine.speakKidsVoice(
                     char.greetings[progress.ageGroup],
                     selectedId,
                     progress.settings.soundEnabled
-                  )
-                }
+                  );
+                  if (!res.startedSpeech && res.reason !== 'muted') {
+                    setVoiceNote(
+                      `Sin voz en español en este navegador. Saludo de ${char.name}: «${char.greetings[progress.ageGroup]}»`
+                    );
+                  } else {
+                    setVoiceNote(null);
+                  }
+                }}
                 className="inline-flex min-h-[42px] items-center gap-1.5 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-700 whitespace-nowrap shrink-0"
               >
                 <Volume2 className="h-4 w-4" />
                 Saludo para {progress.ageGroup} años
               </button>
             </div>
+            {voiceNote && (
+              <p className="rounded-xl border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
+                {voiceNote}
+              </p>
+            )}
           </div>
         </div>
       </section>

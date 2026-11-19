@@ -58,13 +58,21 @@ export const ParentalSpaceModal: React.FC<ParentalSpaceModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 p-4"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="parental-modal-title"
+    >
       <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-3xl border border-stone-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900">
         <div className="flex items-start justify-between gap-4 border-b border-stone-200 pb-4 dark:border-slate-800">
           <div className="flex items-center gap-2.5">
             <ShieldCheck className="h-6 w-6 text-emerald-600" />
             <div>
-              <h2 className="font-display text-lg font-extrabold text-stone-900 dark:text-stone-50">
+              <h2
+                id="parental-modal-title"
+                className="font-display text-lg font-extrabold text-stone-900 dark:text-stone-50"
+              >
                 Espacio Seguro para Padres y Tutores
               </h2>
               <p className="text-xs text-stone-500 dark:text-stone-400">
@@ -92,10 +100,14 @@ export const ParentalSpaceModal: React.FC<ParentalSpaceModalProps> = ({
               <p className="mt-1 text-xs text-stone-600 dark:text-stone-300">
                 No necesitas cuenta ni clave secreta. Solo resuelve esta multiplicación sencilla:
               </p>
-              <p className="mt-3 font-mono-nums text-2xl font-extrabold text-amber-700 dark:text-amber-400">
+              <label
+                htmlFor="parental-math-input"
+                className="mt-3 block font-mono-nums text-2xl font-extrabold text-amber-700 dark:text-amber-400"
+              >
                 ¿Cuánto es {challenge.a} × {challenge.b}?
-              </p>
+              </label>
               <input
+                id="parental-math-input"
                 type="number"
                 inputMode="numeric"
                 value={answerInput}

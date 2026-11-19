@@ -34,61 +34,132 @@ export const StoriesModule: React.FC<StoriesModuleProps> = ({
   const [selectedStory, setSelectedStory] = useState<BibleStory>(BIBLE_STORIES[0]);
   const [sceneIndex, setSceneIndex] = useState(0);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [guidedPhraseIdx, setGuidedPhraseIdx] = useState<number | null>(null);
+  const [narrationNotice, setNarrationNotice] = useState<string | null>(null);
   const [pastorNotice, setPastorNotice] = useState<string | null>(null);
   const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null);
   const [quizFeedback, setQuizFeedback] = useState<string | null>(null);
+  const [speechInfo, setSpeechInfo] = useState(() => audioEngine.getSpeechSupport());
 
   useEffect(() => {
+    const refreshVoices = () => setSpeechInfo(audioEngine.getSpeechSupport());
+    refreshVoices();
+    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+      window.speechSynthesis.addEventListener('voiceschanged', refreshVoices);
+    }
     return () => {
       audioEngine.stopNarration();
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.removeEventListener('voiceschanged', refreshVoices);
+      }
     };
   }, []);
 
   const currentScene = selectedStory.scenes[sceneIndex];
   const narrationText = currentScene.narration[progress.ageGroup];
+  const narrationPhrases = React.useMemo(
+    () =>
+      narrationText
+        .split(/(?<=[.!?])\s+/)
+        .map((p) => p.trim())
+        .filter(Boolean),
+    [narrationText]
+  );
   const question = selectedStory.questions[progress.ageGroup][0];
   const isCompleted = progress.completedStories.includes(selectedStory.id);
 
-  const openStory = (story: BibleStory) => {
+  useEffect(() => {
+    if (!isSpeaking) {
+      setGuidedPhraseIdx(null);
+      return;
+    }
+    setGuidedPhraseIdx(0);
+    const id = window.setInterval(() => {
+      setGuidedPhraseIdx((prev) => {
+        if (prev === null) return 0;
+        if (prev + 1 >= narrationPhrases.length) {
+          return prev;
+        }
+        return prev + 1;
+      });
+    }, 3200);
+    return () => window.clearInterval(id);
+  }, [isSpeaking, narrationPhrases.length]);
+
+  const stopAllPlayback = () => {
     audioEngine.stopNarration();
     setIsSpeaking(false);
+    setGuidedPhraseIdx(null);
+  };
+
+  const openStory = (story: BibleStory) => {
+    stopAllPlayback();
     setSelectedStory(story);
     setSceneIndex(0);
     setSelectedAnswer(null);
     setQuizFeedback(null);
     setPastorNotice(null);
+    setNarrationNotice(null);
+  };
+
+  const startGuidedFallback = (reason: 'muted' | 'no-api' | 'no-spanish-voice' | undefined) => {
+    if (reason === 'muted') {
+      setIsSpeaking(false);
+      setNarrationNotice(
+        'El sonido y las voces están silenciados en el Espacio para Padres. Activamos la lectura visual en pantalla.'
+      );
+      setGuidedPhraseIdx(0);
+      return;
+    }
+    setNarrationNotice(
+      'Este dispositivo no tiene una voz compatible en español instalada. Activamos Lectura Guiada Interactiva con campanas suaves para leer juntos.'
+    );
+    setGuidedPhraseIdx(0);
+    const totalMs = Math.max(3500, narrationPhrases.length * 3200);
+    narrationPhrases.forEach((_, idx) => {
+      window.setTimeout(() => {
+        audioEngine.playTone(523.25 + idx * 65, 0.22, 'triangle', 0.08);
+      }, idx * 3200);
+    });
+    window.setTimeout(() => {
+      setIsSpeaking(false);
+      setGuidedPhraseIdx(null);
+    }, totalMs);
   };
 
   const handlePlayNarration = async () => {
     if (isSpeaking) {
-      audioEngine.stopNarration();
-      setIsSpeaking(false);
+      stopAllPlayback();
       return;
     }
 
     setPastorNotice(null);
+    setNarrationNotice(null);
     setIsSpeaking(true);
 
     if (progress.settings.voiceMode === 'pastor') {
       const result = await audioEngine.playAuthorizedPastorAudio(
         selectedStory.pastorAudioSlot,
-        () => setIsSpeaking(false)
+        () => stopAllPlayback()
       );
       if (!result.available) {
         setIsSpeaking(false);
         setPastorNotice(
-          'Espacio listo para la grabación auténtica del Pastor Jair. Puedes escuchar ahora la voz de nuestros personajes infantiles o leer la historia juntos.'
+          'Espacio listo para la grabación auténtica del Pastor Jair. Aún no se ha subido este audio oficial; puedes cambiar a Voces infantiles o usar la Lectura Guiada.'
         );
       }
       return;
     }
 
-    audioEngine.speakKidsVoice(
+    const res = audioEngine.speakKidsVoice(
       `${selectedStory.title}. ${currentScene.title}. ${narrationText}`,
       currentScene.characterFocus,
       progress.settings.soundEnabled,
-      () => setIsSpeaking(false)
+      () => stopAllPlayback()
     );
+    if (!res.startedSpeech) {
+      startGuidedFallback(res.reason);
+    }
   };
 
   const handleAnswer = (index: number) => {
@@ -240,7 +311,7 @@ export const StoriesModule: React.FC<StoriesModuleProps> = ({
             expression="alegre"
             soundEnabled={progress.settings.soundEnabled}
             darkMode={progress.settings.darkMode}
-            interactiveHint="Toca la escena para descubrir una enseñanza de esta historia"
+            interactiveHint="Toca o gira el diorama 3D para descubrir una enseñanza"
             heightClass="h-56 sm:h-64"
           />
 
@@ -248,23 +319,54 @@ export const StoriesModule: React.FC<StoriesModuleProps> = ({
           <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5 dark:border-slate-800 dark:bg-slate-950/60">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
               <CharacterAvatar character={currentScene.characterFocus} size="md" />
-              <div className="flex-1 space-y-2">
+              <div className="flex-1 space-y-2.5">
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <h4 className="font-display text-base font-bold text-stone-900 dark:text-stone-100">
                     {currentScene.title}
                   </h4>
                   <span className="text-xs font-medium text-stone-500 dark:text-stone-400">
-                    Guía: {CHARACTERS[currentScene.characterFocus].name}
+                    Guía: {CHARACTERS[currentScene.characterFocus].name} ·{' '}
+                    {speechInfo.hasSpanishVoice ? 'Voz español lista' : 'Lectura guiada visual'}
                   </span>
                 </div>
                 <p className="text-base leading-relaxed text-stone-800 dark:text-stone-200">
-                  {narrationText}
+                  {narrationPhrases.map((phrase, idx) => (
+                    <span
+                      key={`${sceneIndex}-${idx}`}
+                      className={`mr-1.5 rounded px-0.5 transition-colors ${
+                        guidedPhraseIdx === idx
+                          ? 'bg-amber-200/80 font-bold text-stone-950 dark:bg-amber-900/60 dark:text-amber-100'
+                          : ''
+                      }`}
+                    >
+                      {phrase}
+                    </span>
+                  ))}
                 </p>
 
-                {pastorNotice && (
-                  <div className="mt-2 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                {narrationNotice && (
+                  <div className="mt-2 flex items-start gap-2 rounded-xl border border-sky-200 bg-sky-50 p-3 text-xs text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-200">
                     <Info className="mt-0.5 h-4 w-4 shrink-0" />
-                    <span>{pastorNotice}</span>
+                    <span>{narrationNotice}</span>
+                  </div>
+                )}
+
+                {pastorNotice && (
+                  <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                    <div className="flex items-start gap-2 flex-1">
+                      <Info className="mt-0.5 h-4 w-4 shrink-0" />
+                      <span>{pastorNotice}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPastorNotice(null);
+                        onChangeVoiceMode('kids');
+                      }}
+                      className="rounded-lg bg-amber-600 px-3 py-1.5 font-bold text-white hover:bg-amber-700 whitespace-nowrap"
+                    >
+                      Usar Voces infantiles
+                    </button>
                   </div>
                 )}
 
@@ -276,18 +378,19 @@ export const StoriesModule: React.FC<StoriesModuleProps> = ({
                   >
                     {isSpeaking ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
                     {isSpeaking
-                      ? 'Pausar narración'
+                      ? 'Detener narración'
                       : progress.settings.voiceMode === 'pastor'
                       ? 'Reproducir audio del Pastor Jair'
-                      : 'Escuchar con voz infantil'}
+                      : speechInfo.hasSpanishVoice
+                      ? 'Escuchar con voz infantil'
+                      : 'Lectura guiada con audio'}
                   </button>
 
                   {isSpeaking && (
                     <button
                       type="button"
                       onClick={() => {
-                        audioEngine.stopNarration();
-                        setIsSpeaking(false);
+                        stopAllPlayback();
                         void handlePlayNarration();
                       }}
                       className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-stone-300 bg-white px-3.5 py-2 text-xs font-semibold text-stone-700 hover:bg-stone-100 dark:border-slate-700 dark:bg-slate-800 dark:text-stone-200"
@@ -302,8 +405,8 @@ export const StoriesModule: React.FC<StoriesModuleProps> = ({
                       type="button"
                       disabled={sceneIndex === 0}
                       onClick={() => {
-                        audioEngine.stopNarration();
-                        setIsSpeaking(false);
+                        stopAllPlayback();
+                        setNarrationNotice(null);
                         setSceneIndex((i) => Math.max(0, i - 1));
                       }}
                       className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-xl border border-stone-300 bg-white text-stone-700 disabled:opacity-40 dark:border-slate-700 dark:bg-slate-800 dark:text-stone-200"
@@ -315,8 +418,8 @@ export const StoriesModule: React.FC<StoriesModuleProps> = ({
                       type="button"
                       disabled={sceneIndex === selectedStory.scenes.length - 1}
                       onClick={() => {
-                        audioEngine.stopNarration();
-                        setIsSpeaking(false);
+                        stopAllPlayback();
+                        setNarrationNotice(null);
                         setSceneIndex((i) => Math.min(selectedStory.scenes.length - 1, i + 1));
                       }}
                       className="inline-flex min-h-[44px] items-center gap-1 rounded-xl bg-amber-600 px-4 py-2 text-xs font-bold text-white disabled:opacity-40"

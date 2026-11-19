@@ -69,6 +69,7 @@ export default function App() {
     toggleFamilyValue,
     claimMission,
     addPrayer,
+    deletePrayer,
     saveArtwork,
     resetAllProgress,
   } = useAppState();
@@ -264,7 +265,11 @@ export default function App() {
             <CreativityModule progress={progress} onSaveArtwork={saveArtwork} />
           )}
           {activeModule === 'prayer' && (
-            <PrayerCornerModule progress={progress} onAddPrayer={addPrayer} />
+            <PrayerCornerModule
+              progress={progress}
+              onAddPrayer={addPrayer}
+              onDeletePrayer={deletePrayer}
+            />
           )}
           {activeModule === 'characters' && <CharactersModule progress={progress} />}
           {activeModule === 'missions' && (

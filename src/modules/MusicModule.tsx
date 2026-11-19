@@ -1,5 +1,15 @@
 import React, { useEffect, useState } from 'react';
-import { CheckCircle2, Music, Pause, Play, Repeat, RotateCcw, Sparkles } from 'lucide-react';
+import {
+  CheckCircle2,
+  Info,
+  Music,
+  Pause,
+  Play,
+  Repeat,
+  RotateCcw,
+  Sparkles,
+  Square,
+} from 'lucide-react';
 import { AppProgress, KidsSong } from '../types/app';
 import { KIDS_SONGS } from '../data/songs';
 import { ASSET_IMAGES } from '../data/modulesData';
@@ -23,14 +33,17 @@ const XYLOPHONE_KEYS = [
   { note: 'Do+', freq: 1046.5, color: 'bg-pink-500 hover:bg-pink-600' },
 ];
 
+const EQ_BARS = [0.45, 0.8, 0.65, 0.95, 0.7, 0.85, 0.55, 0.9];
+
 export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSong }) => {
   const [selectedSong, setSelectedSong] = useState<KidsSong>(KIDS_SONGS[0]);
   const [isPlaying, setIsPlaying] = useState(false);
   const [repeat, setRepeat] = useState(false);
   const [elapsedSec, setElapsedSec] = useState(0);
+  const [beatStep, setBeatStep] = useState(0);
   const [activeKey, setActiveKey] = useState<string | null>(null);
-
   const [hasStarted, setHasStarted] = useState(false);
+  const [realRecordingAvailable, setRealRecordingAvailable] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -38,16 +51,36 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
     };
   }, []);
 
+  useEffect(() => {
+    let active = true;
+    const checkSlot = async () => {
+      try {
+        const res = await fetch(selectedSong.pastorIntroSlot, { method: 'HEAD' });
+        const ct = res.headers.get('content-type') || '';
+        if (active) {
+          setRealRecordingAvailable(res.ok && ct.startsWith('audio/'));
+        }
+      } catch {
+        if (active) setRealRecordingAvailable(false);
+      }
+    };
+    void checkSlot();
+    return () => {
+      active = false;
+    };
+  }, [selectedSong]);
+
   const startPlayback = (song: KidsSong) => {
     setSelectedSong(song);
     setElapsedSec(0);
     setHasStarted(true);
-    setIsPlaying(true);
+    setIsPlaying(progress.settings.musicEnabled);
     audioEngine.playSong(song, {
       repeat,
       musicEnabled: progress.settings.musicEnabled,
       startAtSec: 0,
       onProgress: (sec) => setElapsedSec(sec),
+      onBeat: (step) => setBeatStep(step),
       onEnded: () => {
         setIsPlaying(false);
         setHasStarted(false);
@@ -57,7 +90,15 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
     });
   };
 
+  const stopPlayback = () => {
+    audioEngine.stopSong();
+    setIsPlaying(false);
+    setHasStarted(false);
+    setElapsedSec(0);
+  };
+
   const togglePlay = () => {
+    if (!progress.settings.musicEnabled) return;
     if (isPlaying) {
       const pausedSec = audioEngine.pauseSong();
       setElapsedSec(pausedSec);
@@ -93,8 +134,9 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
               Canciones infantiles originales para cantar con Jesús
             </h2>
             <p className="mt-2 text-sm leading-relaxed text-stone-600 dark:text-stone-300">
-              Todas las melodías suenan en vivo sin conexión usando nuestra orquesta digital segura.
-              Reproduce, pausa, repite y canta siguiendo la letra iluminada.
+              Composiciones completas (60–64 s) interpretadas con arreglo instrumental sintetizado
+              en Web Audio API (marimba, flauta suave, bajo y percusión) que funciona sin internet.
+              Acompaña con tu propia voz siguiendo la letra iluminada.
             </p>
             {!progress.settings.musicEnabled && (
               <p className="mt-3 text-xs font-semibold text-amber-700 dark:text-amber-400">
@@ -124,7 +166,7 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
                 key={song.id}
                 type="button"
                 onClick={() => startPlayback(song)}
-                className={`flex w-full min-h-[60px] items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${
+                className={`flex w-full min-h-[64px] items-center justify-between gap-3 rounded-2xl border p-4 text-left transition ${
                   active
                     ? 'border-emerald-500 bg-emerald-50 dark:border-emerald-500 dark:bg-emerald-950/40'
                     : 'border-stone-200 bg-white hover:bg-stone-50 dark:border-slate-800 dark:bg-slate-900 dark:hover:bg-slate-800'
@@ -139,7 +181,7 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
                       {song.title}
                     </p>
                     <p className="truncate text-xs text-stone-500 dark:text-stone-400">
-                      {song.theme} · {song.durationSec}s
+                      {song.theme} · {song.durationSec}s · Instrumental sintetizado
                     </p>
                   </div>
                 </div>
@@ -149,7 +191,7 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
           })}
         </div>
 
-        <div className="space-y-6 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm lg:col-span-7 dark:border-slate-800 dark:bg-slate-900">
+        <div className="space-y-5 rounded-3xl border border-stone-200 bg-white p-6 shadow-sm lg:col-span-7 dark:border-slate-800 dark:bg-slate-900">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-4">
               <CharacterAvatar
@@ -167,6 +209,33 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
                 <p className="text-xs text-stone-500 dark:text-stone-400">{selectedSong.verse}</p>
               </div>
             </div>
+
+            {/* Rhythmic Visualizer Stage */}
+            <div className="flex items-end gap-1 h-10 rounded-xl bg-emerald-50 px-3 py-2 dark:bg-emerald-950/40" aria-hidden="true">
+              {EQ_BARS.map((base, idx) => {
+                const factor = isPlaying
+                  ? 0.35 + (((beatStep + idx * 3) % 7) / 6) * base
+                  : 0.2;
+                return (
+                  <span
+                    key={idx}
+                    className="w-1.5 rounded-full bg-emerald-600 transition-all duration-150 dark:bg-emerald-400"
+                    style={{ height: `${Math.round(factor * 26)}px` }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Honest Audio Source Distinction */}
+          <div className="flex flex-wrap items-center gap-2 rounded-xl border border-stone-200 bg-stone-50 px-3.5 py-2 text-xs text-stone-700 dark:border-slate-800 dark:bg-slate-950/60 dark:text-stone-300">
+            <Info className="h-4 w-4 text-sky-600 shrink-0" />
+            <span>
+              <strong>Fuente actual:</strong> Instrumental sintetizado en vivo (Web Audio API).{' '}
+              {realRecordingAvailable
+                ? 'Grabación real adicional detectada en este dispositivo.'
+                : `Sin grabación vocal real cargada aún (${selectedSong.pastorIntroSlot}).`}
+            </span>
           </div>
 
           {/* Progress Bar */}
@@ -184,23 +253,35 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
           </div>
 
           {/* Controls */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               type="button"
+              disabled={!progress.settings.musicEnabled}
               onClick={togglePlay}
-              className="inline-flex min-h-[48px] items-center gap-2 rounded-2xl bg-emerald-600 px-6 py-3 text-sm font-bold text-white hover:bg-emerald-700 whitespace-nowrap"
+              className="inline-flex min-h-[48px] items-center gap-2 rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700 disabled:opacity-45 whitespace-nowrap"
             >
               {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              {isPlaying ? 'Pausar canción' : 'Reproducir canción'}
+              {isPlaying ? 'Pausar' : hasStarted && elapsedSec > 0 ? 'Continuar' : 'Reproducir'}
             </button>
 
             <button
               type="button"
+              disabled={!hasStarted && elapsedSec === 0}
+              onClick={stopPlayback}
+              className="inline-flex min-h-[48px] items-center gap-2 rounded-2xl border border-rose-300 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-800 hover:bg-rose-100 disabled:opacity-45 dark:border-rose-800 dark:bg-rose-950/40 dark:text-rose-200 whitespace-nowrap"
+            >
+              <Square className="h-3.5 w-3.5" />
+              Detener
+            </button>
+
+            <button
+              type="button"
+              disabled={!progress.settings.musicEnabled}
               onClick={() => startPlayback(selectedSong)}
-              className="inline-flex min-h-[48px] items-center gap-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-xs font-bold text-stone-700 hover:bg-stone-100 dark:border-slate-700 dark:bg-slate-800 dark:text-stone-200 whitespace-nowrap"
+              className="inline-flex min-h-[48px] items-center gap-2 rounded-2xl border border-stone-300 bg-white px-4 py-3 text-xs font-bold text-stone-700 hover:bg-stone-100 disabled:opacity-45 dark:border-slate-700 dark:bg-slate-800 dark:text-stone-200 whitespace-nowrap"
             >
               <RotateCcw className="h-4 w-4" />
-              Repetir desde el inicio
+              Reiniciar
             </button>
 
             <button
@@ -218,19 +299,26 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
           </div>
 
           {/* Synchronized Lyrics */}
-          <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5 space-y-2 dark:border-slate-800 dark:bg-slate-950/60">
-            <p className="text-xs font-bold text-stone-500 dark:text-stone-400">Letra de la canción</p>
+          <div className="rounded-2xl border border-stone-200 bg-stone-50 p-5 space-y-2 max-h-72 overflow-y-auto dark:border-slate-800 dark:bg-slate-950/60">
+            <p className="text-xs font-bold text-stone-500 dark:text-stone-400">
+              Letra sincronizada para cantar
+            </p>
             {selectedSong.lyrics.map((line, idx) => {
               const current = isPlaying && idx === activeLyricIndex;
               return (
                 <p
                   key={line.timeSec}
-                  className={`text-base transition-colors ${
+                  className={`text-sm sm:text-base transition-colors ${
                     current
                       ? 'font-bold text-emerald-700 dark:text-emerald-400'
                       : 'text-stone-700 dark:text-stone-300'
                   }`}
                 >
+                  {line.section && (
+                    <span className="mr-2 font-mono-nums text-[11px] font-bold text-stone-400 dark:text-stone-500">
+                      [{line.section}]
+                    </span>
+                  )}
                   {line.text}
                 </p>
               );

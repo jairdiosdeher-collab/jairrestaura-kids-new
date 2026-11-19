@@ -14,22 +14,15 @@ const STORAGE_KEY = 'jairrestaura_kids_v1_progress';
 const DEFAULT_PROGRESS: AppProgress = {
   explorerName: 'Pequeño Explorador',
   ageGroup: '6-8',
-  stars: 10,
+  stars: 0,
   completedStories: [],
   completedGames: [],
   completedSongs: [],
   completedValues: [],
+  rewardedValues: [],
   claimedMissions: [],
   visitedModules: ['kingdom'],
-  prayers: [
-    {
-      id: 'initial-prayer',
-      date: 'Hoy',
-      gratitude: 'Gracias Jesús por mi familia, los árboles y Tu gran amor.',
-      prayerFor: 'Por todos los niños del mundo para que conozcan Tu paz.',
-      trustStatement: 'Confío en que Tú caminas conmigo cada día.',
-    },
-  ],
+  prayers: [],
   artworks: [],
   settings: {
     soundEnabled: true,
@@ -50,6 +43,7 @@ function loadInitialProgress(): AppProgress {
     return {
       ...DEFAULT_PROGRESS,
       ...parsed,
+      rewardedValues: parsed.rewardedValues || parsed.completedValues || [],
       settings: {
         ...DEFAULT_PROGRESS.settings,
         ...(parsed.settings || {}),
@@ -142,12 +136,16 @@ export function useAppState() {
   const toggleFamilyValue = useCallback((valueId: string) => {
     setProgress((prev) => {
       const exists = prev.completedValues.includes(valueId);
+      const alreadyRewarded = (prev.rewardedValues || []).includes(valueId);
       return {
         ...prev,
-        stars: prev.stars + (exists ? 0 : 5),
+        stars: prev.stars + (!exists && !alreadyRewarded ? 5 : 0),
         completedValues: exists
           ? prev.completedValues.filter((v) => v !== valueId)
           : [...prev.completedValues, valueId],
+        rewardedValues: alreadyRewarded
+          ? prev.rewardedValues
+          : [...(prev.rewardedValues || []), valueId],
       };
     });
   }, []);
@@ -173,6 +171,13 @@ export function useAppState() {
       ...prev,
       stars: prev.stars + 4,
       prayers: [newEntry, ...prev.prayers].slice(0, 20),
+    }));
+  }, []);
+
+  const deletePrayer = useCallback((prayerId: string) => {
+    setProgress((prev) => ({
+      ...prev,
+      prayers: prev.prayers.filter((p) => p.id !== prayerId),
     }));
   }, []);
 
@@ -210,6 +215,7 @@ export function useAppState() {
     toggleFamilyValue,
     claimMission,
     addPrayer,
+    deletePrayer,
     saveArtwork,
     resetAllProgress,
   };

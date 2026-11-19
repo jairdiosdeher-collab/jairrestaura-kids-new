@@ -78,6 +78,7 @@ export interface BibleStory {
 export interface SongLyricLine {
   timeSec: number;
   text: string;
+  section?: string;
 }
 
 export interface NoteEvent {
@@ -132,6 +133,7 @@ export interface AppProgress {
   completedGames: GameId[];
   completedSongs: string[];
   completedValues: string[];
+  rewardedValues: string[];
   claimedMissions: string[];
   visitedModules: ModuleId[];
   prayers: PrayerEntry[];
