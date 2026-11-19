@@ -16,6 +16,7 @@ import { ASSET_IMAGES } from '../data/modulesData';
 import { CHARACTERS } from '../data/characters';
 import { CharacterAvatar } from '../components/CharacterAvatar';
 import { audioEngine } from '../services/audioEngine';
+import { PianoSchool } from '../components/PianoSchool';
 
 interface MusicModuleProps {
   progress: AppProgress;
@@ -326,6 +327,8 @@ export const MusicModule: React.FC<MusicModuleProps> = ({ progress, onCompleteSo
           </div>
         </div>
       </div>
+
+      <PianoSchool />
 
       {/* Interactive Kingdom Xylophone */}
       <section className="rounded-3xl border border-stone-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900">
