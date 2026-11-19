@@ -3,7 +3,15 @@ import { BookOpen, Pause, Play, Repeat, Sparkles, Trophy } from 'lucide-react';
 import { audioEngine } from '../services/audioEngine';
 
 type NoteName = 'C' | 'D' | 'E' | 'F' | 'G' | 'A' | 'B';
-type PianoNote = { key: string; letter: NoteName; octave: number; label: string; frequency: number; black: boolean };
+type PianoNote = {
+  key: string;
+  letter: NoteName;
+  octave: number;
+  label: string;
+  frequency: number;
+  black: boolean;
+  position: number;
+};
 
 type Lesson = {
   id: string;
@@ -18,6 +26,8 @@ const NOTE_LABELS: Record<NoteName, string> = {
   C: 'DO', D: 'RE', E: 'MI', F: 'FA', G: 'SOL', A: 'LA', B: 'SI',
 };
 const NOTE_ORDER: NoteName[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
+const SEMITONES: Record<NoteName, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+
 const LESSONS: Lesson[] = [
   {
     id: 'cumpleanos-practica',
@@ -38,22 +48,35 @@ const LESSONS: Lesson[] = [
 ];
 
 const midiFrequency = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12);
+
 const makeKeyboard = (): PianoNote[] => {
   const notes: PianoNote[] = [];
-  const semitones: Record<NoteName, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  let whiteIndex = 0;
   for (let octave = 4; octave <= 5; octave += 1) {
     NOTE_ORDER.forEach((letter) => {
-      const midi = 12 * (octave + 1) + semitones[letter];
+      const midi = 12 * (octave + 1) + SEMITONES[letter];
       notes.push({
-        key: letter + octave, letter, octave, label: NOTE_LABELS[letter],
-        frequency: midiFrequency(midi), black: false,
+        key: letter + octave,
+        letter,
+        octave,
+        label: NOTE_LABELS[letter],
+        frequency: midiFrequency(midi),
+        black: false,
+        position: whiteIndex,
       });
       if (['C', 'D', 'F', 'G', 'A'].includes(letter)) {
         notes.push({
-          key: letter + '#' + octave, letter, octave, label: NOTE_LABELS[letter] + '♯',
-          frequency: midiFrequency(midi + 1), black: true,
+          key: letter + '#' + octave,
+          letter,
+          octave,
+          label: NOTE_LABELS[letter] + '♯',
+          frequency: midiFrequency(midi + 1),
+          black: true,
+          // La tecla negra queda físicamente entre esta tecla blanca y la siguiente.
+          position: whiteIndex + 0.68,
         });
       }
+      whiteIndex += 1;
     });
   }
   return notes;
@@ -173,11 +196,6 @@ export const PianoSchool: React.FC<{ enabled?: boolean }> = ({ enabled = true })
   };
 
   const expectedNote = activeLesson.notes[practiceIndex] ?? activeLesson.notes[0];
-  const whiteKeys = KEYBOARD;
-  const blackKeyFrequency = (letter: string, octave: number) => {
-    const base = KEYBOARD.find((note) => note.letter === letter[0] && note.octave === octave);
-    return base ? base.frequency * Math.pow(2, 1 / 12) : 0;
-  };
 
   return (
     <section className="space-y-5 rounded-3xl border border-amber-200 bg-gradient-to-br from-amber-50 via-white to-sky-50 p-5 shadow-sm dark:border-slate-700 dark:from-slate-900 dark:via-slate-900 dark:to-slate-800 sm:p-6">
@@ -236,39 +254,44 @@ export const PianoSchool: React.FC<{ enabled?: boolean }> = ({ enabled = true })
       <div className="rounded-2xl border border-stone-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-950/70 sm:p-4">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <div>
-            <p className="text-sm font-extrabold text-stone-900 dark:text-white">Tu teclado de dos octavas</p>
-            <p className="text-xs text-stone-500 dark:text-stone-400">Desliza horizontalmente si lo necesitas.</p>
+            <p className="text-sm font-extrabold text-stone-900 dark:text-white">Piano convencional de dos octavas</p>
+            <p className="text-xs text-stone-500 dark:text-stone-400">Teclas blancas y negras en su posición musical habitual.</p>
           </div>
           <Sparkles className="h-5 w-5 text-amber-500" />
         </div>
-        <div className="overflow-x-auto pb-2">
-          <div className="relative min-w-[700px]">
-            <div className="grid gap-0" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
-              {whiteKeys.map((note) => (
-                <button key={note.key} type="button" onClick={() => playNote(note.key)}
-                  aria-label={`${note.label} ${note.octave} (${note.key})`}
-                  className={`relative z-0 flex h-36 min-w-0 flex-col items-center justify-end rounded-b-lg border border-stone-300 pb-3 text-[10px] font-extrabold transition sm:h-44 ${activeNote === note.key ? 'bg-amber-200 ring-2 ring-amber-500' : 'bg-white text-stone-600 hover:bg-amber-50'}`}>
-                  <span>{note.letter}</span><span>{note.label}</span><span className="text-[9px] text-stone-400">{note.octave}</span>
+        <div className="overflow-x-auto pb-3">
+          <div className="relative mx-auto min-w-[700px] select-none" aria-label="Teclado de piano de dos octavas">
+            <div className="grid grid-cols-14">
+              {WHITE_KEYS.map((note) => (
+                <button
+                  key={note.key}
+                  type="button"
+                  onClick={() => playNote(note.key)}
+                  aria-label={`${note.label} ${note.octave} (${note.letter})`}
+                  className={`relative z-0 flex h-40 min-w-0 flex-col items-center justify-end rounded-b-md border border-stone-400 pb-3 text-[10px] font-extrabold shadow-sm transition sm:h-48 ${activeNote === note.key ? 'bg-amber-200 ring-2 ring-inset ring-amber-500' : 'bg-white text-stone-700 hover:bg-amber-50'}`}
+                >
+                  <span>{note.letter}</span>
+                  <span>{note.label}</span>
+                  <span className="text-[9px] font-medium text-stone-400">{note.octave}</span>
                 </button>
               ))}
             </div>
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 grid h-24" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
-              {Array.from({ length: 14 }, (_, index) => {
-                const letter = NOTE_ORDER[index % 7];
-                const octave = 4 + Math.floor(index / 7);
-                const black = BLACK_KEYS.find((item) => item.after === letter);
-                if (!black) return <span key={index} />;
-                const key = black.letter + octave;
-                const frequency = blackKeyFrequency(black.letter, octave);
-                return <button key={key} type="button" onClick={(event) => { event.stopPropagation(); audioEngine.playTone(frequency, 0.42, 'triangle', 0.16); setActiveNote(key); window.setTimeout(() => setActiveNote(null), 260); }}
-                  aria-label={`Tecla sostenida ${key}`} className={`pointer-events-auto relative -ml-2 h-24 w-4/5 justify-self-end rounded-b-md border border-black bg-stone-900 text-[9px] font-bold text-white shadow-md ${activeNote === key ? 'bg-amber-600' : 'hover:bg-stone-700'}`}>
-                  ♯
-                </button>;
-              })}
-            </div>
+            {BLACK_KEYS.map((note) => (
+              <button
+                key={note.key}
+                type="button"
+                onClick={() => playNote(note.key)}
+                aria-label={`${note.label} ${note.octave}, tecla negra`}
+                style={{
+                  left: `${((note.position + 0.5) / 14) * 100}%`,
+                  width: `${(0.62 / 14) * 100}%`,
+                }}
+                className={`absolute top-0 z-20 h-24 -translate-x-1/2 rounded-b-md border-x border-b border-black shadow-lg transition sm:h-28 ${activeNote === note.key ? 'bg-amber-500' : 'bg-gradient-to-b from-stone-800 to-black hover:from-stone-700 hover:to-stone-900'}`}
+              />
+            ))}
           </div>
         </div>
-        <p className="mt-2 text-center text-[11px] text-stone-500 dark:text-stone-400">Las teclas blancas muestran letra y nombre musical. Las negras son sostenidos (♯).</p>
+        <p className="mt-1 text-center text-[11px] text-stone-500 dark:text-stone-400">Las teclas negras corresponden a sostenidos (♯). Toca cualquier tecla para escuchar su nota.</p>
       </div>
 
       <div className="rounded-2xl border border-emerald-200 bg-emerald-50/80 p-4 dark:border-emerald-900 dark:bg-emerald-950/30">
