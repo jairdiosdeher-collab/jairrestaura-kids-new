@@ -38,6 +38,10 @@ export interface CharacterData {
   primaryColor: string;
   accentColor: string;
   badgeLabel: string;
+  favoritePlace: string;
+  scenarioTheme: 'ark' | 'storm' | 'valley' | 'palace' | 'sea' | 'whale' | 'star' | 'meadow' | 'rainbow';
+  funFacts: Record<AgeGroup, string>;
+  friendshipAction: string;
   greetings: Record<AgeGroup, string>;
   reactions: Record<CharacterExpression, string>;
 }

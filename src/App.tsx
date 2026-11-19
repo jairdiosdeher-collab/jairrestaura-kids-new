@@ -1,5 +1,16 @@
 import React, { Suspense, lazy, useEffect, useState } from 'react';
-import { BookOpen, Clock, Compass, Gamepad2, Moon, Music, ShieldCheck, Star, Sun } from 'lucide-react';
+import {
+  ArrowLeft,
+  BookOpen,
+  Clock,
+  Compass,
+  Gamepad2,
+  Moon,
+  Music,
+  ShieldCheck,
+  Star,
+  Sun,
+} from 'lucide-react';
 import { ModuleId } from './types/app';
 import { MODULES } from './data/modulesData';
 import { useAppState } from './hooks/useAppState';
@@ -80,21 +91,24 @@ export default function App() {
   const navigateTo = (mod: ModuleId) => {
     audioEngine.stopSong();
     audioEngine.stopNarration();
+    audioEngine.stopAmbientKingdom();
     setActiveModule(mod);
     markModuleVisited(mod);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const currentModDef = MODULES.find((m) => m.id === activeModule);
+
   return (
-    <div className="min-h-screen flex flex-col bg-stone-50 text-stone-900 dark:bg-slate-950 dark:text-stone-100">
+    <div className="min-h-screen flex flex-col bg-gradient-to-b from-sky-50/70 via-stone-50 to-amber-50/40 text-stone-900 dark:from-slate-950 dark:via-slate-950 dark:to-slate-900 dark:text-stone-100">
       {/* Three-Zone Top Bar Contract */}
-      <header className="sticky top-0 z-30 border-b border-stone-200 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95">
+      <header className="sticky top-0 z-30 border-b border-amber-200/70 bg-white/95 backdrop-blur-md dark:border-slate-800 dark:bg-slate-950/95">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-8 px-4 py-3 sm:px-6">
           {/* Zone 1: Single-element Wordmark */}
           <button
             type="button"
             onClick={() => navigateTo('kingdom')}
-            className="font-display text-lg font-extrabold tracking-tight text-stone-900 dark:text-stone-50 whitespace-nowrap shrink-0"
+            className="font-display text-lg font-extrabold tracking-tight text-amber-700 dark:text-amber-400 whitespace-nowrap shrink-0"
           >
             JAIRRESTAURA KIDS
           </button>
@@ -137,36 +151,58 @@ export default function App() {
         </div>
       </header>
 
-      {/* Workspace Module Toolbar + Status Controls */}
-      <div className="border-b border-stone-200 bg-stone-100/70 dark:border-slate-800 dark:bg-slate-900/60">
+      {/* Adventure Status Bar (Clean on Kingdom Home; Return + World Switcher in Sub-modules) */}
+      <div className="border-b border-amber-200/50 bg-amber-50/60 dark:border-slate-800 dark:bg-slate-900/60">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
-          {/* Quick 10-Module Switcher */}
-          <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-            {MODULES.map((m) => {
-              const active = activeModule === m.id;
-              return (
-                <button
-                  key={m.id}
-                  type="button"
-                  onClick={() => navigateTo(m.id)}
-                  className={`min-h-[38px] rounded-xl px-3 py-1.5 text-xs font-semibold transition whitespace-nowrap shrink-0 ${
-                    active
-                      ? 'bg-amber-600 text-white shadow-sm'
-                      : 'bg-white text-stone-700 hover:bg-stone-200/70 dark:bg-slate-800 dark:text-stone-200 dark:hover:bg-slate-700'
-                  }`}
-                >
-                  {m.shortTitle}
-                </button>
-              );
-            })}
-          </div>
+          {activeModule === 'kingdom' ? (
+            <div className="flex items-center gap-2 text-xs font-bold text-amber-900 dark:text-amber-200">
+              <span>¡Bienvenido, {progress.explorerName}!</span>
+              <span aria-hidden="true">·</span>
+              <span className="text-stone-600 dark:text-stone-400">
+                Nivel {progress.ageGroup} años
+              </span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2.5 overflow-x-auto pb-1 sm:pb-0">
+              <button
+                type="button"
+                onClick={() => navigateTo('kingdom')}
+                className="inline-flex min-h-[40px] items-center gap-1.5 rounded-xl bg-amber-600 px-3.5 py-1.5 text-xs font-extrabold text-white shadow-sm hover:bg-amber-700 whitespace-nowrap shrink-0"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Volver al Reino
+              </button>
+              <span className="text-xs font-bold text-stone-700 dark:text-stone-200 whitespace-nowrap">
+                {currentModDef?.title}
+              </span>
+              <div className="hidden lg:flex items-center gap-1.5 ml-2">
+                {MODULES.filter((m) => m.id !== 'kingdom').map((m) => {
+                  const active = activeModule === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => navigateTo(m.id)}
+                      className={`min-h-[36px] rounded-xl px-2.5 py-1 text-xs font-semibold transition whitespace-nowrap shrink-0 ${
+                        active
+                          ? 'bg-stone-900 text-white dark:bg-amber-500 dark:text-stone-950'
+                          : 'bg-white text-stone-700 hover:bg-stone-200/70 dark:bg-slate-800 dark:text-stone-200'
+                      }`}
+                    >
+                      {m.shortTitle}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
-          {/* Explorer Stars, Theme Switch & PWA Install */}
+          {/* Explorer Stars, Day/Night Switch & PWA Install */}
           <div className="flex items-center gap-2.5 shrink-0">
             <button
               type="button"
               onClick={() => navigateTo('missions')}
-              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-amber-200 bg-amber-50 px-3 py-1.5 font-mono-nums text-xs font-extrabold text-amber-800 dark:border-amber-800 dark:bg-amber-950/50 dark:text-amber-300 whitespace-nowrap"
+              className="inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border border-amber-300 bg-white px-3 py-1.5 font-mono-nums text-xs font-extrabold text-amber-800 shadow-xs dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-300 whitespace-nowrap"
             >
               <Star className="h-3.5 w-3.5 fill-amber-500 text-amber-500" />
               {progress.stars} ★
@@ -175,10 +211,19 @@ export default function App() {
             <button
               type="button"
               onClick={() => updateSettings({ darkMode: !progress.settings.darkMode })}
-              className="inline-flex min-h-[38px] min-w-[38px] items-center justify-center rounded-xl border border-stone-300 bg-white text-stone-700 hover:bg-stone-100 dark:border-slate-700 dark:bg-slate-800 dark:text-stone-200"
-              aria-label={progress.settings.darkMode ? 'Activar modo claro' : 'Activar modo oscuro'}
+              className={`inline-flex min-h-[38px] items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-bold transition whitespace-nowrap ${
+                progress.settings.darkMode
+                  ? 'border-amber-500/40 bg-slate-800 text-amber-200 hover:bg-slate-700'
+                  : 'border-stone-300 bg-white text-stone-700 hover:bg-stone-100'
+              }`}
+              aria-label={progress.settings.darkMode ? 'Activar modo día' : 'Activar modo noche'}
             >
-              {progress.settings.darkMode ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+              {progress.settings.darkMode ? (
+                <Sun className="h-4 w-4 text-amber-400" />
+              ) : (
+                <Moon className="h-4 w-4 text-indigo-600" />
+              )}
+              <span className="hidden sm:inline">{progress.settings.darkMode ? 'Día' : 'Noche'}</span>
             </button>
 
             <PWAInstallButton />
@@ -187,7 +232,7 @@ export default function App() {
       </div>
 
       {/* Main Content Stage */}
-      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-8 sm:px-6">
+      <main className="mx-auto w-full max-w-7xl flex-1 px-4 py-6 sm:px-6 sm:py-8">
         <Suspense
           fallback={
             <div className="flex min-h-[320px] items-center justify-center rounded-3xl border border-stone-200 bg-white p-8 text-sm font-semibold text-stone-600 dark:border-slate-800 dark:bg-slate-900 dark:text-stone-300">

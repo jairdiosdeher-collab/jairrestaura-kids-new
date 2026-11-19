@@ -292,6 +292,65 @@ class KidsAudioEngine {
     }
   }
 
+  private ambientPlaying = false;
+  private ambientTimerIds: number[] = [];
+
+  public isAmbientPlaying(): boolean {
+    return this.ambientPlaying;
+  }
+
+  public startAmbientKingdom(enabled = true): boolean {
+    this.stopAmbientKingdom();
+    if (!enabled) return false;
+    const ctx = this.ensureContext();
+    if (!ctx) return false;
+
+    this.ambientPlaying = true;
+    // Gentle pastoral arpeggio in C major / F major / G major (harp-like soft sine)
+    const progression = [
+      [261.63, 329.63, 392.0, 523.25],
+      [220.0, 261.63, 329.63, 440.0],
+      [174.61, 220.0, 261.63, 349.23],
+      [196.0, 246.94, 293.66, 392.0],
+    ];
+
+    const scheduleCycle = () => {
+      if (!this.ambientPlaying) return;
+      progression.forEach((chord, cIdx) => {
+        chord.forEach((freq, nIdx) => {
+          const delayMs = (cIdx * 4 + nIdx) * 520;
+          const tid = window.setTimeout(() => {
+            if (!this.ambientPlaying) return;
+            this.playTone(freq, 0.75, 'sine', 0.038);
+          }, delayMs);
+          this.ambientTimerIds.push(tid);
+        });
+      });
+
+      const loopTid = window.setTimeout(() => {
+        if (this.ambientPlaying) scheduleCycle();
+      }, progression.length * 4 * 520 + 200);
+      this.ambientTimerIds.push(loopTid);
+    };
+
+    scheduleCycle();
+    return true;
+  }
+
+  public stopAmbientKingdom() {
+    this.ambientPlaying = false;
+    this.ambientTimerIds.forEach((id) => window.clearTimeout(id));
+    this.ambientTimerIds = [];
+  }
+
+  public playSparkleBurst(enabled = true) {
+    if (!enabled) return;
+    const notes = [659.25, 783.99, 987.77, 1318.51];
+    notes.forEach((f, idx) => {
+      window.setTimeout(() => this.playTone(f, 0.16, 'triangle', 0.075), idx * 55);
+    });
+  }
+
   public stopNarration() {
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.cancel();

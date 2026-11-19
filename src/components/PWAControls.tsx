@@ -81,7 +81,7 @@ export const OfflineAndUpdateBanners: React.FC = () => {
       {!isOnline && (
         <div
           role="status"
-          className="fixed bottom-4 left-4 z-50 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg"
+          className="fixed bottom-20 md:bottom-4 left-4 z-50 flex items-center gap-2 rounded-xl border border-amber-300 bg-amber-600 px-4 py-2.5 text-xs font-semibold text-white shadow-lg"
         >
           <WifiOff className="h-4 w-4 shrink-0" />
           <span>Modo sin conexión — Usando historias y juegos guardados</span>
@@ -89,7 +89,7 @@ export const OfflineAndUpdateBanners: React.FC = () => {
       )}
 
       {offlineReady && isOnline && (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-semibold text-stone-800 shadow-lg dark:border-emerald-800 dark:bg-slate-900 dark:text-stone-100">
+        <div className="fixed bottom-20 md:bottom-4 right-4 z-50 flex items-center gap-3 rounded-xl border border-emerald-200 bg-white px-4 py-2.5 text-xs font-semibold text-stone-800 shadow-lg dark:border-emerald-800 dark:bg-slate-900 dark:text-stone-100">
           <span>Modo sin conexión listo para usarse en cualquier lugar.</span>
           <button
             type="button"
@@ -102,7 +102,7 @@ export const OfflineAndUpdateBanners: React.FC = () => {
       )}
 
       {needsUpdate && (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-3 rounded-xl border border-sky-300 bg-white px-4 py-3 text-xs font-semibold text-stone-900 shadow-xl dark:border-sky-700 dark:bg-slate-900 dark:text-stone-100">
+        <div className="fixed bottom-20 md:bottom-4 right-4 z-50 flex items-center gap-3 rounded-xl border border-sky-300 bg-white px-4 py-3 text-xs font-semibold text-stone-900 shadow-xl dark:border-sky-700 dark:bg-slate-900 dark:text-stone-100">
           <RefreshCw className="h-4 w-4 text-sky-600 shrink-0" />
           <span>Hay una nueva versión disponible de JAIRRESTAURA KIDS.</span>
           <button

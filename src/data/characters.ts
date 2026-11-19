@@ -12,6 +12,14 @@ export const CHARACTERS: Record<CharacterId, CharacterData> = {
     primaryColor: '#d97706',
     accentColor: '#fef3c7',
     badgeLabel: 'Brújula de la Fe',
+    favoritePlace: 'Colinas del Castillo de Luz',
+    scenarioTheme: 'valley',
+    funFacts: {
+      '3-5': 'Mi brújula siempre señala hacia el norte, ¡y la Biblia nos guía hacia el amor de Jesús!',
+      '6-8': 'En tiempos bíblicos los viajeros usaban las estrellas y mapas en pergamino para cruzar los valles.',
+      '9-12': 'Josué guió al pueblo con valentía porque antes de avanzar meditaba cada día en la Palabra de Dios.',
+    },
+    friendshipAction: 'Invita a un amigo o hermano a sonreír hoy y recuérdale que Dios lo acompaña.',
     greetings: {
       '3-5': '¡Hola amiguito! Soy Lucas. ¡Vamos a explorar juntos con Jesús!',
       '6-8': '¡Bienvenido al Reino! Soy Lucas. ¿Listo para descubrir una gran aventura bíblica hoy?',
@@ -36,6 +44,14 @@ export const CHARACTERS: Record<CharacterId, CharacterData> = {
     primaryColor: '#0284c7',
     accentColor: '#e0f2fe',
     badgeLabel: 'Lupa de Sabiduría',
+    favoritePlace: 'Observatorio de Estrellas',
+    scenarioTheme: 'star',
+    funFacts: {
+      '3-5': '¡Dios conoce el nombre de cada estrella brillante que ves en la noche!',
+      '6-8': 'Con mi lupa descubrí que cada flor del jardín tiene diseños únicos creados por Dios.',
+      '9-12': 'El Salmo 147 dice que Dios cuenta todas las estrellas y llama a cada una por su nombre.',
+    },
+    friendshipAction: 'Haz una pregunta curiosa en familia sobre la naturaleza que Dios creó.',
     greetings: {
       '3-5': '¡Hola! Soy Luna. ¡Mira las flores y estrellas que hizo Dios!',
       '6-8': '¡Hola explorador! Soy Luna. Tengo muchas curiosidades bíblicas para compartir contigo.',
@@ -60,6 +76,14 @@ export const CHARACTERS: Record<CharacterId, CharacterData> = {
     primaryColor: '#ea580c',
     accentColor: '#ffedd5',
     badgeLabel: 'Corazón Valiente',
+    favoritePlace: 'Palacio de la Valentía',
+    scenarioTheme: 'palace',
+    funFacts: {
+      '3-5': 'Aunque soy un leoncito fuerte, prefiero dar abrazos y cuidar a Cordero.',
+      '6-8': 'Cuando Daniel oró en Babilonia, Dios envió un ángel para cerrar la boca de los leones.',
+      '9-12': 'En la Biblia se llama a Jesús el León de la tribu de Judá y también el Cordero lleno de amor.',
+    },
+    friendshipAction: 'Defiende con palabras amables a alguien que necesite ánimo hoy.',
     greetings: {
       '3-5': '¡Ruuugido alegre! Soy León, tu amigo fuerte y bueno.',
       '6-8': '¡Hola campeón! Soy León. Con Jesús podemos ser valientes y amables al mismo tiempo.',
@@ -84,6 +108,14 @@ export const CHARACTERS: Record<CharacterId, CharacterData> = {
     primaryColor: '#059669',
     accentColor: '#d1fae5',
     badgeLabel: 'Paz del Pastor',
+    favoritePlace: 'Pradera de Aguas Tranquilas',
+    scenarioTheme: 'meadow',
+    funFacts: {
+      '3-5': 'Las ovejitas reconocen la voz de su pastor porque las cuida con muchísimo cariño.',
+      '6-8': 'La ramita de olivo que llevo recuerda la paz que la paloma anunció en el arca de Noé.',
+      '9-12': 'En el Salmo 23, el Buen Pastor prepara pastos verdes y calma nuestros temores cada día.',
+    },
+    friendshipAction: 'Agradece a Dios por tres cosas hermosas de tu hogar antes de dormir.',
     greetings: {
       '3-5': '¡Beee! Soy Cordero. Jesús nos cuida con mucho amor.',
       '6-8': '¡Hola amiguito! Soy Cordero. Qué lindo es descansar en los cuidados del Buen Pastor.',
@@ -108,6 +140,14 @@ export const CHARACTERS: Record<CharacterId, CharacterData> = {
     primaryColor: '#ca8a04',
     accentColor: '#fef9c3',
     badgeLabel: 'Luz de Belén',
+    favoritePlace: 'Arcoíris de la Promesa',
+    scenarioTheme: 'rainbow',
+    funFacts: {
+      '3-5': 'Cuando cantas alabanzas a Jesús, todo el Reino brilla con alegría.',
+      '6-8': 'Cada color del arcoíris recuerda que Dios es fiel y siempre cumple lo que promete.',
+      '9-12': 'La luz más pequeña puede iluminar un cuarto oscuro; así brilla la bondad de un niño que ama a Dios.',
+    },
+    friendshipAction: 'Comparte una canción alegre o una oración cortita por alguien que quieres.',
     greetings: {
       '3-5': '¡Tintín! Soy Estrellita. ¡Brilla conmigo cantándole a Jesús!',
       '6-8': '¡Hola luz del Reino! Soy Estrellita. Te acompañaré en tus oraciones, canciones y misiones.',
