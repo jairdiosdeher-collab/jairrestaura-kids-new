@@ -18,7 +18,6 @@ const NOTE_LABELS: Record<NoteName, string> = {
   C: 'DO', D: 'RE', E: 'MI', F: 'FA', G: 'SOL', A: 'LA', B: 'SI',
 };
 const NOTE_ORDER: NoteName[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
-const BLACK_AFTER: NoteName[] = ['C', 'D', 'F', 'G', 'A'];
 const LESSONS: Lesson[] = [
   {
     id: 'cumpleanos-practica',
@@ -41,32 +40,30 @@ const LESSONS: Lesson[] = [
 const midiFrequency = (midi: number) => 440 * Math.pow(2, (midi - 69) / 12);
 const makeKeyboard = (): PianoNote[] => {
   const notes: PianoNote[] = [];
+  const semitones: Record<NoteName, number> = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
   for (let octave = 4; octave <= 5; octave += 1) {
-    NOTE_ORDER.forEach((letter, index) => {
-      const midi = 12 * (octave + 1) + [0, 2, 4, 5, 7, 9, 11][index];
+    NOTE_ORDER.forEach((letter) => {
+      const midi = 12 * (octave + 1) + semitones[letter];
       notes.push({
-        key: letter + octave,
-        letter,
-        octave,
-        label: NOTE_LABELS[letter],
-        frequency: midiFrequency(midi),
-        black: false,
+        key: letter + octave, letter, octave, label: NOTE_LABELS[letter],
+        frequency: midiFrequency(midi), black: false,
       });
+      if (['C', 'D', 'F', 'G', 'A'].includes(letter)) {
+        notes.push({
+          key: letter + '#' + octave, letter, octave, label: NOTE_LABELS[letter] + '♯',
+          frequency: midiFrequency(midi + 1), black: true,
+        });
+      }
     });
   }
   return notes;
 };
 
 const KEYBOARD = makeKeyboard();
-const BLACK_KEYS = [
-  { after: 'C', letter: 'C#', offset: 1 },
-  { after: 'D', letter: 'D#', offset: 2 },
-  { after: 'F', letter: 'F#', offset: 4 },
-  { after: 'G', letter: 'G#', offset: 5 },
-  { after: 'A', letter: 'A#', offset: 6 },
-] as const;
+const WHITE_KEYS = KEYBOARD.filter((note) => !note.black);
+const BLACK_KEYS = KEYBOARD.filter((note) => note.black);
 
-export const PianoSchool: React.FC = () => {
+export const PianoSchool: React.FC<{ enabled?: boolean }> = ({ enabled = true }) => {
   const [lessonId, setLessonId] = useState(LESSONS[0].id);
   const [activeNote, setActiveNote] = useState<string | null>(null);
   const [demoIndex, setDemoIndex] = useState(0);
@@ -113,7 +110,7 @@ export const PianoSchool: React.FC = () => {
   const playNote = (key: string, countPractice = true) => {
     const note = keyboardByKey.get(key);
     if (!note) return;
-    audioEngine.playTone(note.frequency, 0.42, 'triangle', 0.16);
+    if (enabled) audioEngine.playTone(note.frequency, 0.42, 'triangle', 0.16);
     setActiveNote(key);
     window.setTimeout(() => setActiveNote((current) => current === key ? null : current), 260);
     if (countPractice && practiceMode) {
@@ -287,7 +284,7 @@ export const PianoSchool: React.FC = () => {
         </div>
         {practiceMode && (
           <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
-            <p className="font-bold text-emerald-900 dark:text-emerald-100">Busca: {expectedNote} ({NOTE_LABELS[expectedNote[0] as NoteName]})</p>
+            <p className="font-bold text-emerald-900 dark:text-emerald-100">Busca: {expectedNote} ({NOTE_LABELS[expectedNote[0] as NoteName]}{expectedNote.includes('#') ? ' sostenido' : ''})</p>
             <p className="text-xs text-emerald-800 dark:text-emerald-300">Progreso: {practiceIndex}/{activeLesson.notes.length} · Intentos: {attempts}</p>
           </div>
         )}
