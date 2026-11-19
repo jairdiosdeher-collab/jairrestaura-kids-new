@@ -246,7 +246,7 @@ export const PianoSchool: React.FC = () => {
         </div>
         <div className="overflow-x-auto pb-2">
           <div className="relative min-w-[700px]">
-            <div className="grid grid-cols-14 gap-0">
+            <div className="grid gap-0" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
               {whiteKeys.map((note) => (
                 <button key={note.key} type="button" onClick={() => playNote(note.key)}
                   aria-label={`${note.label} ${note.octave} (${note.key})`}
@@ -255,7 +255,7 @@ export const PianoSchool: React.FC = () => {
                 </button>
               ))}
             </div>
-            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 grid h-24 grid-cols-14">
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 grid h-24" style={{ gridTemplateColumns: "repeat(14, minmax(0, 1fr))" }}>
               {Array.from({ length: 14 }, (_, index) => {
                 const letter = NOTE_ORDER[index % 7];
                 const octave = 4 + Math.floor(index / 7);
